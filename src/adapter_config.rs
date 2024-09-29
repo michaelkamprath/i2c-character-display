@@ -2,7 +2,7 @@ use bitfield::bitfield;
 use core::marker::PhantomData;
 use embedded_hal::i2c;
 
-pub trait LCDBitsTrait<I2C>: Default
+pub trait AdapterConfigTrait<I2C>: Default
 where
     I2C: i2c::I2c,
 {
@@ -26,9 +26,9 @@ where
     }
 }
 
-// Configuration for the PCF8574T based 4-bit LCD interface sold by Buy Display and others
+// Configuration for the PCF8574T based 4-bit LCD interface sold
 bitfield! {
-    pub struct BuyDisplayBrandedLCDBitsImpl(u8);
+    pub struct GenericPCF8574TBitField(u8);
     impl Debug;
     impl BitAnd;
     pub rs, set_rs: 0, 0;
@@ -38,24 +38,24 @@ bitfield! {
     pub data, set_data: 7, 4;
 }
 
-pub struct BuyDisplayBrandedLCDBits<I2C> {
-    bits: BuyDisplayBrandedLCDBitsImpl,
+pub struct GenericPCF8574TConfig<I2C> {
+    bits: GenericPCF8574TBitField,
     _marker: PhantomData<I2C>,
 }
 
-impl<I2C> Default for BuyDisplayBrandedLCDBits<I2C>
+impl<I2C> Default for GenericPCF8574TConfig<I2C>
 where
     I2C: i2c::I2c,
 {
     fn default() -> Self {
         Self {
-            bits: BuyDisplayBrandedLCDBitsImpl(0),
+            bits: GenericPCF8574TBitField(0),
             _marker: PhantomData,
         }
     }
 }
 
-impl<I2C> LCDBitsTrait<I2C> for BuyDisplayBrandedLCDBits<I2C>
+impl<I2C> AdapterConfigTrait<I2C> for GenericPCF8574TConfig<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -90,7 +90,7 @@ where
 
 // Configuration for the MCP23008 based LCD backpack from Adafruit
 bitfield! {
-    pub struct AdafruitLCDBackpackLCDBitsImpl(u8);
+    pub struct AdafruitLCDBackpackBitField(u8);
     impl Debug;
     impl BitAnd;
     pub rs, set_rs: 1, 1;
@@ -99,24 +99,24 @@ bitfield! {
     pub data, set_data: 6, 3;
 }
 
-pub struct AdafruitLCDBackpackLCDBits<I2C> {
-    bits: AdafruitLCDBackpackLCDBitsImpl,
+pub struct AdafruitLCDBackpackConfig<I2C> {
+    bits: AdafruitLCDBackpackBitField,
     _marker: PhantomData<I2C>,
 }
 
-impl<I2C> Default for AdafruitLCDBackpackLCDBits<I2C>
+impl<I2C> Default for AdafruitLCDBackpackConfig<I2C>
 where
     I2C: i2c::I2c,
 {
     fn default() -> Self {
         Self {
-            bits: AdafruitLCDBackpackLCDBitsImpl(0),
+            bits: AdafruitLCDBackpackBitField(0),
             _marker: PhantomData,
         }
     }
 }
 /// Configuration for the MCP23008 based LCD backpack from Adafruit
-impl<I2C> LCDBitsTrait<I2C> for AdafruitLCDBackpackLCDBits<I2C>
+impl<I2C> AdapterConfigTrait<I2C> for AdafruitLCDBackpackConfig<I2C>
 where
     I2C: i2c::I2c,
 {

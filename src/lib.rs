@@ -1,3 +1,71 @@
+//! This `embedded-hal` based library is a simple way to control a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
+//! compatible character display with an "I2C backpack" interface in a embedded, `no_std` environment. A number of I2C backpack interfaces
+//! are supported:
+//!
+//! - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C backpack that can be used with either I2C
+//! or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface.
+//! - **PCF8574-based I2C adapter** - These adapters are ubiquitous on eBay and AliExpress and have no clear branding. The most common pin
+//! wiring uses 4 data pins and 3 control pins. Most models have the display 4-bit data poins connected to P4-P7 of the PCF8574. This library
+//! supports that configuration, though it would be straightforward to add support for other configurations.
+//!
+//! Key features include:
+//! - Convenient high-level API for controlling the display
+//! - Support for custom characters
+//! - Backlight control
+//! - `core::fmt::Write` implementation for easy use with the `write!` macro
+//! - `embedded-hal` traits for easy integration with most any board support package compatible with `embedded-hal`
+//!
+//! ## Usage
+//! Add this to your `Cargo.toml`:
+//! ```toml
+//! [dependencies]
+//! i2c-character-display = { version = "0.1", features = ["defmt"] }
+//! ```
+//! The `features = ["defmt"]` line is optional and enables the `defmt` feature, which allows the library's errors to be used with the `defmt` logging
+//! framework. Then select the appropriate adapter for your display:
+//! ```rust
+//! use i2c_character_display::{AdafruitLCDBackpack, CharacterDisplayPCF8574T, LcdDisplayType};
+//! use embedded_hal::delay::DelayMs;
+//! use embedded_hal::i2c::I2c;
+//!
+//! // board setup
+//! let i2c = ...; // I2C peripheral
+//! let delay = ...; // DelayMs implementation
+//!
+//! // It is recommended that the `i2c` object be wrapped in an `embedded_hal_bus::i2c::CriticalSectionDevice` so that it can be shared between
+//! // multiple peripherals.
+//!
+//! // Adafruit backpack
+//! let mut lcd = AdafruitLCDBackpack::new(i2c, LcdDisplayType::Lcd16x2, delay);
+//! // PCF8574T adapter
+//! let mut lcd = CharacterDisplayPCF8574T::new(i2c, LcdDisplayType::Lcd16x2, delay);
+//! ```
+//! When creating the display object, you can choose the display type from the `LcdDisplayType` enum. The display type should match the physical
+//! display you are using. This display type configures the number of rows and columns, and the internal row offsets for the display.
+//! 
+//! Initialize the display:
+//! ```rust
+//! if let Err(e) = lcd.init() {
+//!    panic!("Error initializing LCD: {}", e);
+//! }
+//! ```
+//! Use the display:
+//! ```rust
+//! // set up the display
+//! lcd.backlight(true)?.clear()?.home()?;
+//! // print a message
+//! lcd.print("Hello, world!")?;
+//! // can also use the `core::fmt::write!` macro
+//! use core::fmt::write;
+//!
+//! write!(lcd, "Hello, world!")?;
+//! ```
+//! The various methods for controlling the LCD are also available. Each returns a `Result` that wraps the display object, allowing for easy chaining
+//! of commands. For example:
+//! ```rust
+//! lcd.backlight(true)?.clear()?.home()?.print("Hello, world!")?;
+//! ```
+//!
 #![no_std]
 #![allow(dead_code, non_camel_case_types, non_upper_case_globals)]
 use embedded_hal::{delay::DelayNs, i2c};
@@ -40,7 +108,7 @@ const LCD_FLAG_1LINE: u8 = 0x00; //  LCD 1 line mode
 const LCD_FLAG_5x10_DOTS: u8 = 0x04; //  10 pixel high font mode
 const LCD_FLAG_5x8_DOTS: u8 = 0x00; //  8 pixel high font mode
 
-mod bit_configurations;
+mod adapter_config;
 
 /// Errors that can occur when using the LCD backpack
 pub enum Error<I2C>
@@ -147,16 +215,16 @@ pub struct BaseCharacterDisplay<I2C, DELAY, BITS> {
     display_mode: u8,
 }
 
-pub type CharacterDisplay<I2C, DELAY> =
-    BaseCharacterDisplay<I2C, DELAY, bit_configurations::BuyDisplayBrandedLCDBits<I2C>>;
+pub type CharacterDisplayPCF8574T<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, adapter_config::GenericPCF8574TConfig<I2C>>;
 pub type AdafruitLCDBackpack<I2C, DELAY> =
-    BaseCharacterDisplay<I2C, DELAY, bit_configurations::AdafruitLCDBackpackLCDBits<I2C>>;
+    BaseCharacterDisplay<I2C, DELAY, adapter_config::AdafruitLCDBackpackConfig<I2C>>;
 
 impl<I2C, DELAY, BITS> BaseCharacterDisplay<I2C, DELAY, BITS>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
-    BITS: bit_configurations::LCDBitsTrait<I2C>,
+    BITS: adapter_config::AdapterConfigTrait<I2C>,
 {
     pub fn new(i2c: I2C, lcd_type: LcdDisplayType, delay: DELAY) -> Self {
         Self::new_with_address(i2c, BITS::default_i2c_address(), lcd_type, delay)
@@ -367,7 +435,7 @@ impl<I2C, DELAY, BITS> core::fmt::Write for BaseCharacterDisplay<I2C, DELAY, BIT
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
-    BITS: bit_configurations::LCDBitsTrait<I2C>,
+    BITS: adapter_config::AdapterConfigTrait<I2C>,
 {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
         if let Err(_error) = self.print(s) {
