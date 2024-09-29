@@ -1,14 +1,14 @@
 # I2C Character Display
 <!-- cargo-sync-readme start -->
 
-This `embedded-hal` based library is a simple way to control a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
+This Rust `embedded-hal`-based library is a simple way to control a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
 compatible character display with an "I2C backpack" interface in a embedded, `no_std` environment. A number of I2C backpack interfaces
 are supported:
 
 - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C backpack that can be used with either I2C
 or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface.
 - **PCF8574-based I2C adapter** - These adapters are ubiquitous on eBay and AliExpress and have no clear branding. The most common pin
-wiring uses 4 data pins and 3 control pins. Most models have the display 4-bit data poins connected to P4-P7 of the PCF8574. This library
+wiring uses 4 data pins and 3 control pins. Most models have the display 4-bit data pins connected to P4-P7 of the PCF8574. This library
 supports that configuration, though it would be straightforward to add support for other configurations.
 
 Key features include:
@@ -16,7 +16,7 @@ Key features include:
 - Support for custom characters
 - Backlight control
 - `core::fmt::Write` implementation for easy use with the `write!` macro
-- `embedded-hal` traits for easy integration with most any board support package compatible with `embedded-hal`
+- Compatible with the `embedded-hal` traits v1.0 and later
 
 ## Usage
 Add this to your `Cargo.toml`:
@@ -59,11 +59,11 @@ lcd.backlight(true)?.clear()?.home()?;
 // print a message
 lcd.print("Hello, world!")?;
 // can also use the `core::fmt::write!` macro
-use core::fmt::write;
+use core::fmt::Write;
 
 write!(lcd, "Hello, world!")?;
 ```
-The various methods for controlling the LCD are also available. Each returns a `Result` that wraps the display object, allowing for easy chaining
+The various methods for controlling the LCD are also available. Each returns a `Result` that wraps the display object in `Ok()`, allowing for easy chaining
 of commands. For example:
 ```rust
 lcd.backlight(true)?.clear()?.home()?.print("Hello, world!")?;
