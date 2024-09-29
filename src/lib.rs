@@ -147,8 +147,10 @@ pub struct BaseCharacterDisplay<I2C, DELAY, BITS> {
     display_mode: u8,
 }
 
-pub type CharacterDisplay<I2C, DELAY> = BaseCharacterDisplay<I2C, DELAY, bit_configurations::BuyDisplayBrandedLCDBits<I2C>>;
-pub type AdafruitLCDBackpack<I2C, DELAY> = BaseCharacterDisplay<I2C, DELAY, bit_configurations::AdafruitLCDBackpackLCDBits<I2C>>;
+pub type CharacterDisplay<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, bit_configurations::BuyDisplayBrandedLCDBits<I2C>>;
+pub type AdafruitLCDBackpack<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, bit_configurations::AdafruitLCDBackpackLCDBits<I2C>>;
 
 impl<I2C, DELAY, BITS> BaseCharacterDisplay<I2C, DELAY, BITS>
 where
@@ -174,7 +176,9 @@ where
     }
 
     pub fn init(&mut self) -> Result<(), Error<I2C>> {
-        self.bits.init(&mut self.i2c, self.address).map_err(Error::I2cError)?;
+        self.bits
+            .init(&mut self.i2c, self.address)
+            .map_err(Error::I2cError)?;
 
         // Put LCD into 4 bit mode, device starts in 8 bit mode
         self.write_4_bits(0x03)?;
@@ -211,14 +215,19 @@ where
         self.write_4_bits(value & 0x0F)?;
         Ok(())
     }
+
     fn write_4_bits(&mut self, value: u8) -> Result<(), Error<I2C>> {
         self.bits.set_data(value & 0x0F);
         self.bits.set_rw(0);
         self.bits.set_enable(1);
-        self.bits.write_bits_to_gpio(&mut self.i2c, self.address).map_err(Error::I2cError)?;
+        self.bits
+            .write_bits_to_gpio(&mut self.i2c, self.address)
+            .map_err(Error::I2cError)?;
         self.delay.delay_us(1);
         self.bits.set_enable(0);
-        self.bits.write_bits_to_gpio(&mut self.i2c, self.address).map_err(Error::I2cError)?;
+        self.bits
+            .write_bits_to_gpio(&mut self.i2c, self.address)
+            .map_err(Error::I2cError)?;
         self.delay.delay_us(1);
         Ok(())
     }
@@ -346,7 +355,9 @@ where
     /// Turn the backlight on or off
     pub fn backlight(&mut self, on: bool) -> Result<&mut Self, Error<I2C>> {
         self.bits.set_backlight(on as u8);
-        self.bits.write_bits_to_gpio(&mut self.i2c, self.address).map_err(Error::I2cError)?;
+        self.bits
+            .write_bits_to_gpio(&mut self.i2c, self.address)
+            .map_err(Error::I2cError)?;
         Ok(self)
     }
 }

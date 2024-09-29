@@ -1,9 +1,10 @@
 use bitfield::bitfield;
-use embedded_hal::i2c;
 use core::marker::PhantomData;
+use embedded_hal::i2c;
 
-pub trait LCDBitsTrait<I2C> : Default
-where I2C: i2c::I2c
+pub trait LCDBitsTrait<I2C>: Default
+where
+    I2C: i2c::I2c,
 {
     fn bits(&self) -> u8;
     fn default_i2c_address() -> u8;
@@ -37,14 +38,14 @@ bitfield! {
     pub data, set_data: 7, 4;
 }
 
-
 pub struct BuyDisplayBrandedLCDBits<I2C> {
     bits: BuyDisplayBrandedLCDBitsImpl,
     _marker: PhantomData<I2C>,
 }
 
 impl<I2C> Default for BuyDisplayBrandedLCDBits<I2C>
-where I2C: i2c::I2c
+where
+    I2C: i2c::I2c,
 {
     fn default() -> Self {
         Self {
@@ -55,7 +56,8 @@ where I2C: i2c::I2c
 }
 
 impl<I2C> LCDBitsTrait<I2C> for BuyDisplayBrandedLCDBits<I2C>
-where I2C: i2c::I2c
+where
+    I2C: i2c::I2c,
 {
     fn bits(&self) -> u8 {
         self.bits.0
@@ -103,7 +105,8 @@ pub struct AdafruitLCDBackpackLCDBits<I2C> {
 }
 
 impl<I2C> Default for AdafruitLCDBackpackLCDBits<I2C>
-where I2C: i2c::I2c
+where
+    I2C: i2c::I2c,
 {
     fn default() -> Self {
         Self {
@@ -114,9 +117,9 @@ where I2C: i2c::I2c
 }
 /// Configuration for the MCP23008 based LCD backpack from Adafruit
 impl<I2C> LCDBitsTrait<I2C> for AdafruitLCDBackpackLCDBits<I2C>
-where I2C: i2c::I2c
+where
+    I2C: i2c::I2c,
 {
-
     fn bits(&self) -> u8 {
         self.bits.0
     }
