@@ -1,0 +1,25 @@
+[package]
+name = "i2c-character-display"
+version = "0.1.0"
+edition = "2021"
+description = "Driver for character displays connected via a I2C backpack"
+license = "MIT OR Apache-2.0"
+repository = ""
+readme = "README.md"
+keywords = ["embedded", "i2c", "character display", "driver", "lcd"]
+categories = ["embedded-hal", "no-std", "embedded"]
+
+[lib]
+name = "i2c_character_display"
+path = "src/lib.rs"
+crate-type = ["lib"]
+test = false
+bench = false
+
+[dependencies]
+embedded-hal = { version = "1.0" }
+bitfield = "0.17"
+defmt = { version = "0.3", optional = true }
+
+[features]
+defmt = ["dep:defmt", "embedded-hal/defmt-03"]
