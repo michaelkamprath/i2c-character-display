@@ -1,6 +1,5 @@
 #![no_std]
 #![allow(dead_code, non_camel_case_types, non_upper_case_globals)]
-use bitfield::bitfield;
 use embedded_hal::{delay::DelayNs, i2c};
 
 // commands
@@ -41,16 +40,7 @@ const LCD_FLAG_1LINE: u8 = 0x00; //  LCD 1 line mode
 const LCD_FLAG_5x10_DOTS: u8 = 0x04; //  10 pixel high font mode
 const LCD_FLAG_5x8_DOTS: u8 = 0x00; //  8 pixel high font mode
 
-bitfield! {
-    pub struct LCDBits(u8);
-    impl Debug;
-    impl BitAnd;
-    pub rs, set_rs: 0, 0;
-    pub rw, set_rw: 1, 1;
-    pub enable, set_enable: 2, 2;
-    pub backlight, set_backlight: 3, 3;
-    pub data, set_data: 7, 4;
-}
+mod bit_configurations;
 
 /// Errors that can occur when using the LCD backpack
 pub enum Error<I2C>
@@ -90,6 +80,7 @@ where
         }
     }
 }
+
 /// The type of LCD display. This is used to determine the number of rows and columns, and the row offsets.
 pub enum LcdDisplayType {
     /// 20x4 display
@@ -145,24 +136,28 @@ impl LcdDisplayType {
     }
 }
 
-pub struct CharacterDisplay<I2C, DELAY> {
+pub struct BaseCharacterDisplay<I2C, DELAY, BITS> {
     lcd_type: LcdDisplayType,
     i2c: I2C,
     address: u8,
-    bits: LCDBits,
+    bits: BITS,
     delay: DELAY,
     display_function: u8,
     display_control: u8,
     display_mode: u8,
 }
 
-impl<I2C, DELAY> CharacterDisplay<I2C, DELAY>
+pub type CharacterDisplay<I2C, DELAY> = BaseCharacterDisplay<I2C, DELAY, bit_configurations::BuyDisplayBrandedLCDBits<I2C>>;
+pub type AdafruitLCDBackpack<I2C, DELAY> = BaseCharacterDisplay<I2C, DELAY, bit_configurations::AdafruitLCDBackpackLCDBits<I2C>>;
+
+impl<I2C, DELAY, BITS> BaseCharacterDisplay<I2C, DELAY, BITS>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
+    BITS: bit_configurations::LCDBitsTrait<I2C>,
 {
     pub fn new(i2c: I2C, lcd_type: LcdDisplayType, delay: DELAY) -> Self {
-        Self::new_with_address(i2c, 0x27, lcd_type, delay)
+        Self::new_with_address(i2c, BITS::default_i2c_address(), lcd_type, delay)
     }
 
     pub fn new_with_address(i2c: I2C, address: u8, lcd_type: LcdDisplayType, delay: DELAY) -> Self {
@@ -170,7 +165,7 @@ where
             lcd_type,
             i2c,
             address,
-            bits: LCDBits(0),
+            bits: BITS::default(),
             delay,
             display_function: LCD_FLAG_4BITMODE | LCD_FLAG_5x8_DOTS | LCD_FLAG_2LINE,
             display_control: LCD_FLAG_DISPLAYON | LCD_FLAG_CURSOROFF | LCD_FLAG_BLINKOFF,
@@ -179,6 +174,8 @@ where
     }
 
     pub fn init(&mut self) -> Result<(), Error<I2C>> {
+        self.bits.init(&mut self.i2c, self.address).map_err(Error::I2cError)?;
+
         // Put LCD into 4 bit mode, device starts in 8 bit mode
         self.write_4_bits(0x03)?;
         self.delay.delay_ms(5);
@@ -218,14 +215,10 @@ where
         self.bits.set_data(value & 0x0F);
         self.bits.set_rw(0);
         self.bits.set_enable(1);
-        self.i2c
-            .write(self.address, &[self.bits.0])
-            .map_err(Error::I2cError)?;
+        self.bits.write_bits_to_gpio(&mut self.i2c, self.address).map_err(Error::I2cError)?;
         self.delay.delay_us(1);
         self.bits.set_enable(0);
-        self.i2c
-            .write(self.address, &[self.bits.0])
-            .map_err(Error::I2cError)?;
+        self.bits.write_bits_to_gpio(&mut self.i2c, self.address).map_err(Error::I2cError)?;
         self.delay.delay_us(1);
         Ok(())
     }
@@ -353,18 +346,17 @@ where
     /// Turn the backlight on or off
     pub fn backlight(&mut self, on: bool) -> Result<&mut Self, Error<I2C>> {
         self.bits.set_backlight(on as u8);
-        self.i2c
-            .write(self.address, &[self.bits.0])
-            .map_err(Error::I2cError)?;
+        self.bits.write_bits_to_gpio(&mut self.i2c, self.address).map_err(Error::I2cError)?;
         Ok(self)
     }
 }
 
 /// Implement the `core::fmt::Write` trait for the LCD backpack, allowing it to be used with the `write!` macro.
-impl<I2C, DELAY> core::fmt::Write for CharacterDisplay<I2C, DELAY>
+impl<I2C, DELAY, BITS> core::fmt::Write for BaseCharacterDisplay<I2C, DELAY, BITS>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
+    BITS: bit_configurations::LCDBitsTrait<I2C>,
 {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
         if let Err(_error) = self.print(s) {
