@@ -7,7 +7,7 @@ license = "MIT"
 repository = "https://github.com/michaelkamprath/i2c-character-display"
 readme = "README.md"
 keywords = ["embedded", "i2c", "character-display", "driver", "lcd"]
-categories = ["embedded-hal", "no-std", "embedded"]
+categories = ["no-std", "embedded"]
 
 [lib]
 name = "i2c_character_display"
