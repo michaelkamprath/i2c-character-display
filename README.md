@@ -2,7 +2,7 @@
 <!-- cargo-sync-readme start -->
 
 This Rust `embedded-hal`-based library is a simple way to control a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
-compatible character display with an "I2C backpack" interface in a embedded, `no_std` environment. A number of I2C backpack interfaces
+compatible character display with an "I2C backpack" interface in an embedded, `no_std` environment. A number of I2C backpack interfaces
 are supported:
 
 - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C backpack that can be used with either I2C
