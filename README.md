@@ -1,5 +1,5 @@
 # I2C Character Display
-![crates.io](https://img.shields.io/crates/v/i2c-character-display.svg)
+[![crates.io](https://img.shields.io/crates/v/i2c-character-display.svg)](https://crates.io/crates/i2c-character-display)
 <!-- cargo-sync-readme start -->
 
 This Rust `embedded-hal`-based library is a simple way to control a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
