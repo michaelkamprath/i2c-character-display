@@ -6,7 +6,7 @@ description = "Driver for HD44780-based character displays connected via a I2C a
 license = "MIT"
 repository = "https://github.com/michaelkamprath/i2c-character-display"
 readme = "README.md"
-keywords = ["embedded", "i2c", "character display", "driver", "lcd"]
+keywords = ["embedded", "i2c", "character-display", "driver", "lcd"]
 categories = ["embedded-hal", "no-std", "embedded"]
 
 [lib]
