@@ -162,3 +162,99 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+    use super::*;
+    use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
+
+    #[test]
+    fn test_generic_pcf8574t_config() {
+        let mut config = GenericPCF8574TConfig::<I2cMock>::default();
+        config.set_rs(1);
+        config.set_rw(0);
+        config.set_enable(1);
+        config.set_backlight(1);
+        config.set_data(0b1010);
+
+        assert_eq!(config.bits(), 0b10101101);
+        assert_eq!(
+            GenericPCF8574TConfig::<I2cMock>::default_i2c_address(),
+            0x27
+        );
+
+        config.set_rs(0);
+        config.set_rw(1);
+        config.set_enable(0);
+        config.set_backlight(0);
+        config.set_data(0b0101);
+
+        assert_eq!(config.bits(), 0b01010010);
+    }
+
+    #[test]
+    fn test_adafruit_lcd_backpack_config() {
+        let mut config = AdafruitLCDBackpackConfig::<I2cMock>::default();
+        config.set_rs(1);
+        config.set_enable(1);
+        config.set_backlight(1);
+        config.set_data(0b1010);
+        // adafruit backpack doesn't use RW
+
+        assert_eq!(config.bits(), 0b11010110);
+        assert_eq!(
+            AdafruitLCDBackpackConfig::<I2cMock>::default_i2c_address(),
+            0x20
+        );
+
+        config.set_rs(0);
+        config.set_enable(0);
+        config.set_backlight(0);
+        config.set_data(0b0101);
+
+        assert_eq!(config.bits(), 0b00101000);
+    }
+
+    #[test]
+    fn test_generic_pcf8574t_config_write_bits_to_gpio() {
+        let mut config = GenericPCF8574TConfig::<I2cMock>::default();
+        config.set_rs(1);
+        config.set_rw(0);
+        config.set_enable(1);
+        config.set_backlight(1);
+        config.set_data(0b1010);
+
+        let expected_transactions = [I2cTransaction::write(0x27, std::vec![0b10101101])];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        config.write_bits_to_gpio(&mut i2c, 0x27).unwrap();
+        i2c.done();
+    }
+
+    #[test]
+    fn test_adafruit_lcd_backpack_config_write_bits_to_gpio() {
+        let mut config = AdafruitLCDBackpackConfig::<I2cMock>::default();
+        config.set_rs(1);
+        config.set_enable(1);
+        config.set_backlight(1);
+        config.set_data(0b1010);
+
+        let expected_transactions = [I2cTransaction::write(0x20, std::vec![0x09, 0b11010110])];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        config.write_bits_to_gpio(&mut i2c, 0x20).unwrap();
+        i2c.done();
+    }
+
+    #[test]
+    fn test_adafruit_init() {
+        let config = AdafruitLCDBackpackConfig::<I2cMock>::default();
+
+        let expected_transactions = [I2cTransaction::write(0x20, std::vec![0x00, 0x00])];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        config.init(&mut i2c, 0x20).unwrap();
+        i2c.done();
+    }
+}

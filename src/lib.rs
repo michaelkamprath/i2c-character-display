@@ -266,6 +266,11 @@ where
         Ok(())
     }
 
+    /// returns a reference to the I2C peripheral. mostly needed for testing
+    fn i2c(&mut self) -> &mut I2C {
+        &mut self.i2c
+    }
+
     fn send_command(&mut self, command: u8) -> Result<(), Error<I2C>> {
         self.bits.set_rs(0);
         self.write_8_bits(command)?;
@@ -442,5 +447,135 @@ where
             return Err(core::fmt::Error);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+    use super::*;
+    use embedded_hal_mock::eh1::{
+        delay::NoopDelay,
+        i2c::{Mock as I2cMock, Transaction as I2cTransaction},
+    };
+
+    #[test]
+    fn test_character_display_pcf8574t_init() {
+        let i2c_address = 0x27_u8;
+        let expected_i2c_transactions = std::vec![
+            // the PCF8574T has no adapter init sequence, so nothing to prepend
+            // the LCD init sequence
+            // write low nibble of 0x03 3 times
+            I2cTransaction::write(i2c_address, std::vec![0b0011_0100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0011_0000]), // low nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0b0011_0100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0011_0000]), // low nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0b0011_0100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0011_0000]), // low nibble, rw=0, enable=0
+            // write high nibble of 0x02 one time
+            I2cTransaction::write(i2c_address, std::vec![0b0010_0100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0010_0000]), // high nibble, rw=0, enable=0
+            // turn on the backlight
+            // I2cTransaction::write(i2c_address, std::vec![0b0000_1000]),    // backlight on
+            // LCD_CMD_FUNCTIONSET | LCD_FLAG_4BITMODE | LCD_FLAG_5x8_DOTS | LCD_FLAG_2LINE
+            // = 0x20 | 0x00 | 0x00 | 0x08 = 0x28
+            I2cTransaction::write(i2c_address, std::vec![0b0010_1100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0010_1000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0b1000_1100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b1000_1000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_DISPLAYCONTROL | LCD_FLAG_DISPLAYON | LCD_FLAG_CURSOROFF | LCD_FLAG_BLINKOFF
+            // = 0x08 | 0x04 | 0x00 | 0x00 = 0x0C
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0b1100_1100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b1100_1000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_ENTRYMODESET | LCD_FLAG_ENTRYLEFT | LCD_FLAG_ENTRYSHIFTDECREMENT
+            // = 0x04 | 0x02 | 0x00 = 0x06
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0b0110_1100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0110_1000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_CLEARDISPLAY
+            // = 0x01
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0b0001_1100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0001_1000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_RETURNHOME
+            // = 0x02
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0000_1000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0b0010_1100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0b0010_1000]), // low nibble, rw=0, enable=0
+        ];
+
+        let i2c = I2cMock::new(&expected_i2c_transactions);
+        let mut lcd = CharacterDisplayPCF8574T::new(i2c, LcdDisplayType::Lcd16x2, NoopDelay::new());
+        let result = lcd.init();
+        assert!(result.is_ok());
+
+        // finish the i2c mock
+        lcd.i2c().done();
+    }
+
+    #[test]
+    fn test_adafruit_lcd_backpack_init() {
+        let i2c_address = 0x20_u8;
+        let expected_i2c_transactions = std::vec![
+            // the Adafruit Backpack need to init the adapter IC first
+            // write 0x00 to the MCP23008 IODIR register to set all pins as outputs
+            I2cTransaction::write(i2c_address, std::vec![0x00, 0x00]),
+            // the LCD init sequence
+            // write low nibble of 0x03 3 times
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0011_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0011_000]), // low nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0011_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0011_000]), // low nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0011_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0011_000]), // low nibble, rw=0, enable=0
+            // write high nibble of 0x02 one time
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0010_100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b0_0010_000]), // high nibble, rw=0, enable=0
+            // turn on the backlight
+            // I2cTransaction::write(i2c_address, std::vec![0b0000_1000]),    // backlight on
+            // LCD_CMD_FUNCTIONSET | LCD_FLAG_4BITMODE | LCD_FLAG_5x8_DOTS | LCD_FLAG_2LINE
+            // = 0x20 | 0x00 | 0x00 | 0x08 = 0x28
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0010_100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0010_000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_1000_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_1000_000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_DISPLAYCONTROL | LCD_FLAG_DISPLAYON | LCD_FLAG_CURSOROFF | LCD_FLAG_BLINKOFF
+            // = 0x08 | 0x04 | 0x00 | 0x00 = 0x0C
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_1100_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_1100_000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_ENTRYMODESET | LCD_FLAG_ENTRYLEFT | LCD_FLAG_ENTRYSHIFTDECREMENT
+            // = 0x04 | 0x02 | 0x00 = 0x06
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0110_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0110_000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_CLEARDISPLAY
+            // = 0x01
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0001_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0001_000]), // low nibble, rw=0, enable=0
+            // LCD_CMD_RETURNHOME
+            // = 0x02
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_100]), // high nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0000_000]), // high nibble, rw=0, enable=0
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0010_100]), // low nibble, rw=0, enable=1
+            I2cTransaction::write(i2c_address, std::vec![0x09, 0b1_0010_000]), // low nibble, rw=0, enable=0
+        ];
+
+        let i2c = I2cMock::new(&expected_i2c_transactions);
+        let mut lcd = AdafruitLCDBackpack::new(i2c, LcdDisplayType::Lcd16x2, NoopDelay::new());
+        let result = lcd.init();
+        assert!(result.is_ok());
+
+        // finish the i2c mock
+        lcd.i2c().done();
     }
 }
