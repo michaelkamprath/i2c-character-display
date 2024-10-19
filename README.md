@@ -18,6 +18,7 @@ Key features include:
 - Backlight control
 - `core::fmt::Write` implementation for easy use with the `write!` macro
 - Compatible with the `embedded-hal` traits v1.0 and later
+- Support for character displays that used multiple HD44780 drivers, such as the 40x4 display
 
 ## Usage
 Add this to your `Cargo.toml`:
@@ -43,6 +44,8 @@ let delay = ...; // DelayMs implementation
 let mut lcd = AdafruitLCDBackpack::new(i2c, LcdDisplayType::Lcd16x2, delay);
 // PCF8574T adapter
 let mut lcd = CharacterDisplayPCF8574T::new(i2c, LcdDisplayType::Lcd16x2, delay);
+// Character display with dual HD44780 drivers using a PCF8574T I2C adapter
+let mut lcd = CharacterDisplayDualHD44780::new(i2c, LcdDisplayType::Lcd40x4, delay);
 ```
 When creating the display object, you can choose the display type from the `LcdDisplayType` enum. The display type should match the physical
 display you are using. This display type configures the number of rows and columns, and the internal row offsets for the display.
