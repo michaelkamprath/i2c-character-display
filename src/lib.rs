@@ -184,7 +184,7 @@ where
 {
     fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
     where
-        W: ufmt::uWrite + ?Sized
+        W: ufmt::uWrite + ?Sized,
     {
         match self {
             Error::I2cError(_e) => ufmt::uwrite!(w, "I2C error"),
@@ -220,7 +220,7 @@ pub enum LcdDisplayType {
 impl ufmt::uDisplay for LcdDisplayType {
     fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
     where
-        W: ufmt::uWrite + ?Sized
+        W: ufmt::uWrite + ?Sized,
     {
         match self {
             LcdDisplayType::Lcd20x4 => ufmt::uwrite!(w, "20x4"),
@@ -708,7 +708,6 @@ where
         Ok(())
     }
 }
-
 
 #[cfg(feature = "ufmt")]
 /// Implement the `ufmt::uWrite` trait for the LCD backpack, allowing it to be used with the `uwriteln!` and `uwrite!` macros.

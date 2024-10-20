@@ -24,8 +24,8 @@ impl defmt::Format for AdapterError {
 impl ufmt::uDisplay for AdapterError {
     fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
     where
-        W: ufmt::uWrite + ?Sized
-{
+        W: ufmt::uWrite + ?Sized,
+    {
         match self {
             AdapterError::BadDeviceId => ufmt::uwrite!(w, "BadDeviceId"),
         }
