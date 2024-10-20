@@ -63,6 +63,13 @@
 //!
 //! write!(lcd, "Hello, world!")?;
 //! ```
+//! The optional `ufmt` feature enables the `ufmt` crate, which allows the `uwriteln!` and `uwrite!` macros to be used with the display:
+//! ```rust
+//! use ufmt::uwriteln;
+//!
+//! uwriteln!(lcd, "Hello, world!")?;
+//! ```
+//!
 //! The various methods for controlling the LCD are also available. Each returns a `Result` that wraps the display object in `Ok()`, allowing for easy chaining
 //! of commands. For example:
 //! ```rust
@@ -170,6 +177,26 @@ where
     }
 }
 
+#[cfg(feature = "ufmt")]
+impl<I2C> ufmt::uDisplay for Error<I2C>
+where
+    I2C: i2c::I2c,
+{
+    fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
+    where
+        W: ufmt::uWrite + ?Sized
+    {
+        match self {
+            Error::I2cError(_e) => ufmt::uwrite!(w, "I2C error"),
+            Error::RowOutOfRange => ufmt::uwrite!(w, "Row out of range"),
+            Error::ColumnOutOfRange => ufmt::uwrite!(w, "Column out of range"),
+            Error::FormattingError(_e) => ufmt::uwrite!(w, "Formatting error"),
+            Error::AdapterError(e) => ufmt::uwrite!(w, "Adapter error: {}", e),
+            Error::UnsupportedDisplayType => ufmt::uwrite!(w, "Unsupported display type"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// The type of LCD display. This is used to determine the number of rows and columns, and the row offsets.
 pub enum LcdDisplayType {
@@ -187,6 +214,24 @@ pub enum LcdDisplayType {
     Lcd40x2,
     /// 40x4 display
     Lcd40x4,
+}
+
+#[cfg(feature = "ufmt")]
+impl ufmt::uDisplay for LcdDisplayType {
+    fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
+    where
+        W: ufmt::uWrite + ?Sized
+    {
+        match self {
+            LcdDisplayType::Lcd20x4 => ufmt::uwrite!(w, "20x4"),
+            LcdDisplayType::Lcd20x2 => ufmt::uwrite!(w, "20x2"),
+            LcdDisplayType::Lcd16x2 => ufmt::uwrite!(w, "16x2"),
+            LcdDisplayType::Lcd16x4 => ufmt::uwrite!(w, "16x4"),
+            LcdDisplayType::Lcd8x2 => ufmt::uwrite!(w, "8x2"),
+            LcdDisplayType::Lcd40x2 => ufmt::uwrite!(w, "40x2"),
+            LcdDisplayType::Lcd40x4 => ufmt::uwrite!(w, "40x4"),
+        }
+    }
 }
 
 impl LcdDisplayType {
@@ -657,11 +702,32 @@ where
     BITS: adapter_config::AdapterConfigTrait<I2C>,
 {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-        if let Err(_error) = self.print(s) {
+        if let Err(_e) = self.print(s) {
             return Err(core::fmt::Error);
         }
         Ok(())
     }
+}
+
+
+#[cfg(feature = "ufmt")]
+/// Implement the `ufmt::uWrite` trait for the LCD backpack, allowing it to be used with the `uwriteln!` and `uwrite!` macros.
+/// This is a convenience method for printing to the display. For multi-device, this will print to the active device as set by
+/// `set_cursor`. If you need to print to a specific device, use the `print` method.
+impl<I2C, DELAY, BITS> ufmt::uWrite for BaseCharacterDisplay<I2C, DELAY, BITS>
+where
+    I2C: i2c::I2c,
+    DELAY: DelayNs,
+    BITS: adapter_config::AdapterConfigTrait<I2C>,
+{
+    fn write_str(&mut self, s: &str) -> Result<(), Error<I2C>> {
+        if let Err(e) = self.print(s) {
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    type Error = Error<I2C>;
 }
 
 #[cfg(test)]

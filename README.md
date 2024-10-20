@@ -7,10 +7,10 @@ compatible character display with an "I2C backpack" interface in an embedded, `n
 are supported:
 
 - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C backpack that can be used with either I2C
-or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface.
+  or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface.
 - **PCF8574-based I2C adapter** - These adapters are ubiquitous on eBay and AliExpress and have no clear branding. The most common pin
-wiring uses 4 data pins and 3 control pins. Most models have the display 4-bit data pins connected to P4-P7 of the PCF8574. This library
-supports that configuration, though it would be straightforward to add support for other configurations.
+  wiring uses 4 data pins and 3 control pins. Most models have the display 4-bit data pins connected to P4-P7 of the PCF8574. This library
+  supports that configuration, though it would be straightforward to add support for other configurations.
 
 Key features include:
 - Convenient high-level API for controlling the display
@@ -67,6 +67,13 @@ use core::fmt::Write;
 
 write!(lcd, "Hello, world!")?;
 ```
+The optional `ufmt` feature enables the `ufmt` crate, which allows the `uwriteln!` and `uwrite!` macros to be used with the display:
+```rust
+use ufmt::uwriteln;
+
+uwriteln!(lcd, "Hello, world!")?;
+```
+
 The various methods for controlling the LCD are also available. Each returns a `Result` that wraps the display object in `Ok()`, allowing for easy chaining
 of commands. For example:
 ```rust
