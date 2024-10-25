@@ -414,6 +414,11 @@ where
         &mut self.i2c
     }
 
+    /// returns the `LcdDisplayType` used to create the display
+    pub fn display_type(&self) -> LcdDisplayType {
+        self.lcd_type
+    }
+
     /// Sends a command datum to the display. Normally users do not need to call this directly.
     /// For multiple devices, this sends the command to the currently active contoller device.
     fn send_command(&mut self, command: u8) -> Result<(), Error<I2C>> {
@@ -897,6 +902,7 @@ mod lib_tests {
         let mut lcd = AdafruitLCDBackpack::new(i2c, LcdDisplayType::Lcd16x2, NoopDelay::new());
         let result = lcd.init();
         assert!(result.is_ok());
+        assert!(lcd.display_type() == LcdDisplayType::Lcd16x2);
 
         // finish the i2c mock
         lcd.i2c().done();
@@ -1004,6 +1010,7 @@ mod lib_tests {
             CharacterDisplayDualHD44780::new(i2c, LcdDisplayType::Lcd40x4, NoopDelay::new());
         let result = lcd.init();
         assert!(result.is_ok());
+        assert!(lcd.display_type() == LcdDisplayType::Lcd40x4);
 
         // finish the i2c mock
         lcd.i2c().done();
