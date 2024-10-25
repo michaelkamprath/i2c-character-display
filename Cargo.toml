@@ -1,6 +1,6 @@
 [package]
 name = "i2c-character-display"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Driver for HD44780-based character displays connected via a I2C adapter"
 license = "MIT"
@@ -21,9 +21,12 @@ doctest = false
 embedded-hal = { version = "1.0" }
 bitfield = "0.17"
 defmt = { version = "0.3", optional = true }
+ufmt = {version = "0.2", optional = true}
+
 
 [features]
 defmt = ["dep:defmt", "embedded-hal/defmt-03"]
+ufmt = ["dep:ufmt"]
 
 [dev-dependencies]
 embedded-hal-mock = "0.11"

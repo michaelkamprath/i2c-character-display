@@ -20,6 +20,18 @@ impl defmt::Format for AdapterError {
     }
 }
 
+#[cfg(feature = "ufmt")]
+impl ufmt::uDisplay for AdapterError {
+    fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
+    where
+        W: ufmt::uWrite + ?Sized,
+    {
+        match self {
+            AdapterError::BadDeviceId => ufmt::uwrite!(w, "BadDeviceId"),
+        }
+    }
+}
+
 pub trait AdapterConfigTrait<I2C>: Default
 where
     I2C: i2c::I2c,
