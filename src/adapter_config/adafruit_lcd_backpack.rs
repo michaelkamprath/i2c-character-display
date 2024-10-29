@@ -44,6 +44,10 @@ where
         0x20
     }
 
+    fn supports_reads() -> bool {
+        false
+    }
+
     fn set_rs(&mut self, value: bool) {
         self.bits.set_rs(value as u8);
     }
@@ -77,6 +81,11 @@ where
         let data = [0x09, self.bits.0];
         i2c.write(i2c_address, &data)?;
         Ok(())
+    }
+
+    fn read_from_gpio(&self, _i2c: &mut I2C, _i2c_address: u8, _rs_setting: bool) -> Result<u8, I2C::Error> {
+        // reads are not supported
+        unimplemented!("Reads are not supported for Adafruit LCD Backpack");
     }
 
     fn is_supported(display_type: LcdDisplayType) -> bool {

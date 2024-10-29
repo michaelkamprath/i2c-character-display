@@ -38,6 +38,7 @@ where
 {
     fn bits(&self) -> u8;
     fn default_i2c_address() -> u8;
+    fn supports_reads() -> bool;
 
     fn set_rs(&mut self, value: bool);
     fn set_rw(&mut self, value: bool);
@@ -56,6 +57,12 @@ where
         let data = [self.bits()];
         i2c.write(i2c_address, &data)?;
         Ok(())
+    }
+
+    fn read_from_gpio(&self, i2c: &mut I2C, i2c_address: u8, rs_setting: bool) -> Result<u8, I2C::Error>;
+
+    fn is_busy(&self, _i2c: &mut I2C, _i2c_address: u8) -> Result<bool, I2C::Error> {
+        Ok(false)
     }
 
     fn device_count(&self) -> usize {

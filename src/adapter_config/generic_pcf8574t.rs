@@ -18,6 +18,13 @@ bitfield! {
     pub data, set_data: 7, 4;
 }
 
+impl Clone for GenericPCF8574TBitField {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+#[derive(Clone)]
 pub struct GenericPCF8574TConfig<I2C> {
     bits: GenericPCF8574TBitField,
     _marker: PhantomData<I2C>,
@@ -45,6 +52,76 @@ where
 
     fn default_i2c_address() -> u8 {
         0x27
+    }
+
+    fn supports_reads() -> bool {
+        true
+    }
+
+    fn read_from_gpio(&self, i2c: &mut I2C, i2c_address: u8, rs_setting: bool) -> Result<u8, I2C::Error> {
+        // wait for the BUSY flag to clear
+        while self.is_busy(i2c, i2c_address)? {
+            // wait
+        }
+        let mut data_read: u8;
+        let mut data_buf = [0];
+        // now we can read the data. Set up PCF8574T to read data
+        let mut data_cntl = self.bits.clone();
+        data_cntl.set_data(0b1111);
+        data_cntl.set_enable(0);
+        data_cntl.set_rs(rs_setting as u8);
+        data_cntl.set_rw(1); // read
+        i2c.write(i2c_address, &[data_cntl.0])?;
+        // not that is is set up, set the enable bit to read the data
+        data_cntl.set_enable(1);
+        i2c.write(i2c_address, &[data_cntl.0])?;
+        // read the data
+        i2c.read(i2c_address, &mut data_buf)?;
+        // turn off the enable bit so next nibble can be read
+        data_cntl.set_enable(0);
+        i2c.write(i2c_address, &[data_cntl.0])?;
+        // first nibble read was high nibble, shift it to the left. using GenericPCF8574TBitField
+        // to get the bit positions correct.
+        data_read = GenericPCF8574TBitField(data_buf[0]).data() << 4;
+        // now read the low nibble. activate the enable bit to read the low nibble
+        data_cntl.set_enable(1);
+        i2c.write(i2c_address, &[data_cntl.0])?;
+        // read the data
+        i2c.read(i2c_address, &mut data_buf)?;
+        // turn off the enable bit so next nibble can be read
+        data_cntl.set_enable(0);
+        i2c.write(i2c_address, &[data_cntl.0])?;
+        // combine the high and low nibbles
+        data_read |= GenericPCF8574TBitField(data_buf[0]).data() & 0x0F;
+
+        Ok(data_read)
+    }
+    fn is_busy(&self, i2c: &mut I2C, i2c_address: u8) -> Result<bool, I2C::Error> {
+        // need to set all data bits to HIGH to read, per PFC8574 data sheet description of Quasi-bidirectional I/Os
+        let mut setup = self.bits.clone();
+        setup.set_data(0b1111);
+        setup.set_rs(0);
+        setup.set_rw(1);
+        setup.set_enable(0);
+        i2c.write(i2c_address, &[setup.0])?;
+        // need two enable cycles to read the data, but the busy flag is in the 4th bit of the first
+        // nibble, so we only need to read the first nibble
+        setup.set_enable(1);
+        i2c.write(i2c_address, &[setup.0])?;
+        let mut data = [0];
+        i2c.read(i2c_address, &mut data)?;
+        let read_data = GenericPCF8574TBitField(data[0]);
+        // turn off the enable bit so next nibble can be read
+        setup.set_enable(0);
+        i2c.write(i2c_address, &[setup.0])?;
+        // toggle enable one more time per the 4-bit interface for the HD44780
+        setup.set_enable(1);
+        i2c.write(i2c_address, &[setup.0])?;
+        setup.set_enable(0);
+        i2c.write(i2c_address, &[setup.0])?;
+
+        Ok(read_data.data() & 0b1000 != 0)
+
     }
 
     fn set_rs(&mut self, value: bool) {

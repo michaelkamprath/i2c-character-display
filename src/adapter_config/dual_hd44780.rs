@@ -44,6 +44,20 @@ where
         0x27
     }
 
+    fn supports_reads() -> bool {
+        true
+    }
+
+    fn read_from_gpio(&self, i2c: &mut I2C, i2c_address: u8, rs_setting: bool) -> Result<u8, I2C::Error> {
+        // need to set all bits to HIGH to read, per PFC8574 data sheet description of Quasi-bidirectional I/Os
+        let mut data = [0xff];
+        i2c.write(i2c_address, &data)?;
+
+        data = [0];
+        i2c.read(i2c_address, &mut data)?;
+        Ok(data[0])
+    }
+
     fn set_rs(&mut self, value: bool) {
         self.bits.set_rs(value as u8);
     }

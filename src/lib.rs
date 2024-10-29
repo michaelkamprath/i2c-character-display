@@ -419,6 +419,11 @@ where
         self.lcd_type
     }
 
+    /// Supports the ability to read from the display.
+    pub fn supports_reads() -> bool {
+        DEVICE::supports_reads()
+    }
+
     /// Sends a command datum to the display. Normally users do not need to call this directly.
     /// For multiple devices, this sends the command to the currently active contoller device.
     fn send_command(&mut self, command: u8) -> Result<(), Error<I2C>> {
@@ -465,6 +470,12 @@ where
             .map_err(Error::I2cError)?;
         self.delay.delay_us(1);
         Ok(())
+    }
+
+    fn read_8_bits(&mut self, device: usize) -> Result<u8, Error<I2C>> {
+
+
+        Ok(0)
     }
 
     //--------------------------------------------------------------------------------------------------
