@@ -230,4 +230,102 @@ mod tests {
         config.write_bits_to_gpio(&mut i2c, 0x27).unwrap();
         i2c.done();
     }
+
+    #[test]
+    fn test_generic_pcf8574t_config_read_bytes() {
+        let expected_transactions = [
+            // set up PCF8574T to read data for is busy check - true
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read high nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b10100110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read low nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // set up PCF8574T to read data for is busy check - false
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read high nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b00100110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read low nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // set up PCF8574T to read data for data read
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // Byte 0 = $DE
+            // read high nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b11010110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read low nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b11100110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // Byte 0 = $AD
+            // read high nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b10100110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read low nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b11010110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+        ];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        let config = GenericPCF8574TConfig::<I2cMock>::default();
+
+        let buffer = &mut [0u8; 2];
+        assert!( config.read_bytes_from_device(&mut i2c, 0x27, 0, false, buffer).is_ok());
+        assert_eq!(buffer, &[0xDE, 0xAD]);
+        i2c.done();
+    }
+
+    #[test]
+    fn test_generic_pcf8574t_config_is_busy() {
+        let expected_transactions = [
+            // set up PCF8574T to read data
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read high nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b10100110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read low nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+        ];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        let config = GenericPCF8574TConfig::<I2cMock>::default();
+
+        let is_busy = config.is_busy(&mut i2c, 0x27).unwrap();
+
+        assert_eq!(is_busy, true);
+        i2c.done();
+    }
+
+    #[test]
+    fn test_generic_pcf8574t_config_is_not_busy() {
+        let expected_transactions = [
+            // set up PCF8574T to read data
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read high nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::read(0x27, std::vec![0b00100110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+            // read low nibble
+            I2cTransaction::write(0x27, std::vec![0b11110110]),
+            I2cTransaction::write(0x27, std::vec![0b11110010]),
+        ];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        let config = GenericPCF8574TConfig::<I2cMock>::default();
+
+        let is_busy = config.is_busy(&mut i2c, 0x27).unwrap();
+
+        assert_eq!(is_busy, false);
+        i2c.done();
+    }
 }
