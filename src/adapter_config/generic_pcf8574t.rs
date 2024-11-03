@@ -278,7 +278,9 @@ mod tests {
         let config = GenericPCF8574TConfig::<I2cMock>::default();
 
         let buffer = &mut [0u8; 2];
-        assert!( config.read_bytes_from_device(&mut i2c, 0x27, 0, false, buffer).is_ok());
+        assert!(config
+            .read_bytes_from_device(&mut i2c, 0x27, 0, false, buffer)
+            .is_ok());
         assert_eq!(buffer, &[0xDE, 0xAD]);
         i2c.done();
     }

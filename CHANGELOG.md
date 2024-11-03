@@ -2,8 +2,9 @@
 
 ## [Unreleased]
 
-## [0.3.0] - ??
+## [0.3.0] - 2024-11-03
 * Added support for data reads from the LCD Character Display for I2C adapters that support it. Refactored code to support this.
+* Improved docuemntation
 
 ## [0.2.1] - 2024-10-26
 * Added support for `ufmt`
