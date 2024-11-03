@@ -15,6 +15,12 @@ bitfield! {
     pub data, set_data: 7, 4;
 }
 
+impl Clone for DualHD44780_PCF8574TBitField {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
 pub struct DualHD44780_PCF8574TConfig<I2C> {
     bits: DualHD44780_PCF8574TBitField,
     _marker: PhantomData<I2C>,
@@ -45,17 +51,7 @@ where
     }
 
     fn supports_reads() -> bool {
-        true
-    }
-
-    fn read_from_gpio(&self, i2c: &mut I2C, i2c_address: u8, rs_setting: bool) -> Result<u8, I2C::Error> {
-        // need to set all bits to HIGH to read, per PFC8574 data sheet description of Quasi-bidirectional I/Os
-        let mut data = [0xff];
-        i2c.write(i2c_address, &data)?;
-
-        data = [0];
-        i2c.read(i2c_address, &mut data)?;
-        Ok(data[0])
+        false
     }
 
     fn set_rs(&mut self, value: bool) {
@@ -67,7 +63,7 @@ where
         // does nothing
     }
 
-    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), AdapterError> {
+    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), AdapterError<I2C>> {
         if device == 0 {
             self.bits.set_enable1(value as u8);
         } else if device == 1 {
@@ -112,7 +108,7 @@ mod tests {
     #[test]
     fn test_bad_device_id() {
         let mut config = DualHD44780_PCF8574TConfig::<I2cMock>::default();
-        assert_eq!(config.set_enable(true, 2), Err(AdapterError::BadDeviceId));
+        assert!(config.set_enable(true, 2).is_err());
     }
 
     #[test]

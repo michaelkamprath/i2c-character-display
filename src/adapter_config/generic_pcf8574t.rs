@@ -58,70 +58,88 @@ where
         true
     }
 
-    fn read_from_gpio(&self, i2c: &mut I2C, i2c_address: u8, rs_setting: bool) -> Result<u8, I2C::Error> {
+    fn read_bytes_from_device(
+        &self,
+        i2c: &mut I2C,
+        i2c_address: u8,
+        _device: usize,
+        rs_setting: bool,
+        buffer: &mut [u8],
+    ) -> Result<(), AdapterError<I2C>> {
         // wait for the BUSY flag to clear
         while self.is_busy(i2c, i2c_address)? {
             // wait
         }
-        let mut data_read: u8;
-        let mut data_buf = [0];
+
         // now we can read the data. Set up PCF8574T to read data
         let mut data_cntl = self.bits.clone();
         data_cntl.set_data(0b1111);
         data_cntl.set_enable(0);
         data_cntl.set_rs(rs_setting as u8);
         data_cntl.set_rw(1); // read
-        i2c.write(i2c_address, &[data_cntl.0])?;
-        // not that is is set up, set the enable bit to read the data
-        data_cntl.set_enable(1);
-        i2c.write(i2c_address, &[data_cntl.0])?;
-        // read the data
-        i2c.read(i2c_address, &mut data_buf)?;
-        // turn off the enable bit so next nibble can be read
-        data_cntl.set_enable(0);
-        i2c.write(i2c_address, &[data_cntl.0])?;
-        // first nibble read was high nibble, shift it to the left. using GenericPCF8574TBitField
-        // to get the bit positions correct.
-        data_read = GenericPCF8574TBitField(data_buf[0]).data() << 4;
-        // now read the low nibble. activate the enable bit to read the low nibble
-        data_cntl.set_enable(1);
-        i2c.write(i2c_address, &[data_cntl.0])?;
-        // read the data
-        i2c.read(i2c_address, &mut data_buf)?;
-        // turn off the enable bit so next nibble can be read
-        data_cntl.set_enable(0);
-        i2c.write(i2c_address, &[data_cntl.0])?;
-        // combine the high and low nibbles
-        data_read |= GenericPCF8574TBitField(data_buf[0]).data() & 0x0F;
+        i2c.write(i2c_address, &[data_cntl.0])
+            .map_err(AdapterError::I2CError)?;
 
-        Ok(data_read)
+        // not that is is set up, read bytes into buffer
+        let mut data_buf = [0];
+        for byte in buffer {
+            *byte = 0;
+            // read high nibble
+            data_cntl.set_enable(1);
+            i2c.write(i2c_address, &[data_cntl.0])
+                .map_err(AdapterError::I2CError)?;
+            i2c.read(i2c_address, &mut data_buf)
+                .map_err(AdapterError::I2CError)?;
+            data_cntl.set_enable(0);
+            i2c.write(i2c_address, &[data_cntl.0])
+                .map_err(AdapterError::I2CError)?;
+            *byte = GenericPCF8574TBitField(data_buf[0]).data() << 4;
+
+            // read low nibble
+            data_cntl.set_enable(1);
+            i2c.write(i2c_address, &[data_cntl.0])
+                .map_err(AdapterError::I2CError)?;
+            i2c.read(i2c_address, &mut data_buf)
+                .map_err(AdapterError::I2CError)?;
+            data_cntl.set_enable(0);
+            i2c.write(i2c_address, &[data_cntl.0])
+                .map_err(AdapterError::I2CError)?;
+            *byte |= GenericPCF8574TBitField(data_buf[0]).data() & 0x0F;
+        }
+        Ok(())
     }
-    fn is_busy(&self, i2c: &mut I2C, i2c_address: u8) -> Result<bool, I2C::Error> {
+
+    fn is_busy(&self, i2c: &mut I2C, i2c_address: u8) -> Result<bool, AdapterError<I2C>> {
         // need to set all data bits to HIGH to read, per PFC8574 data sheet description of Quasi-bidirectional I/Os
         let mut setup = self.bits.clone();
         setup.set_data(0b1111);
         setup.set_rs(0);
         setup.set_rw(1);
         setup.set_enable(0);
-        i2c.write(i2c_address, &[setup.0])?;
+        i2c.write(i2c_address, &[setup.0])
+            .map_err(AdapterError::I2CError)?;
         // need two enable cycles to read the data, but the busy flag is in the 4th bit of the first
         // nibble, so we only need to read the first nibble
         setup.set_enable(1);
-        i2c.write(i2c_address, &[setup.0])?;
+        i2c.write(i2c_address, &[setup.0])
+            .map_err(AdapterError::I2CError)?;
         let mut data = [0];
-        i2c.read(i2c_address, &mut data)?;
+        i2c.read(i2c_address, &mut data)
+            .map_err(AdapterError::I2CError)?;
         let read_data = GenericPCF8574TBitField(data[0]);
         // turn off the enable bit so next nibble can be read
         setup.set_enable(0);
-        i2c.write(i2c_address, &[setup.0])?;
+        i2c.write(i2c_address, &[setup.0])
+            .map_err(AdapterError::I2CError)?;
         // toggle enable one more time per the 4-bit interface for the HD44780
         setup.set_enable(1);
-        i2c.write(i2c_address, &[setup.0])?;
+        i2c.write(i2c_address, &[setup.0])
+            .map_err(AdapterError::I2CError)?;
         setup.set_enable(0);
-        i2c.write(i2c_address, &[setup.0])?;
+        i2c.write(i2c_address, &[setup.0])
+            .map_err(AdapterError::I2CError)?;
 
         Ok(read_data.data() & 0b1000 != 0)
-
     }
 
     fn set_rs(&mut self, value: bool) {
@@ -132,7 +150,7 @@ where
         self.bits.set_rw(value as u8);
     }
 
-    fn set_enable(&mut self, value: bool, _device: usize) -> Result<(), AdapterError> {
+    fn set_enable(&mut self, value: bool, _device: usize) -> Result<(), AdapterError<I2C>> {
         self.bits.set_enable(value as u8);
         Ok(())
     }
@@ -198,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generic_pcf8574t_config_write_bits_to_gpio() {
+    fn test_generic_pcf8574t_config_write_byte() {
         let mut config = GenericPCF8574TConfig::<I2cMock>::default();
         config.set_rs(true);
         config.set_rw(false);
