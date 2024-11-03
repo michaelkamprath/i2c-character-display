@@ -58,6 +58,7 @@ where
         }
     }
 }
+
 pub trait AdapterConfigTrait<I2C>: Default
 where
     I2C: i2c::I2c,

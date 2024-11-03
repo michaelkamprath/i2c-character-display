@@ -16,6 +16,8 @@
 //! - `core::fmt::Write` implementation for easy use with the `write!` macro
 //! - Compatible with the `embedded-hal` traits v1.0 and later
 //! - Support for character displays that uses multiple HD44780 drivers, such as the 40x4 display
+//! - Optional support for the `defmt` and `ufmt` logging frameworks
+//! - Optional support for reading from the display on adapters that support it
 //!
 //! ## Usage
 //! Add this to your `Cargo.toml`:
@@ -78,6 +80,11 @@
 //! ```rust
 //! lcd.backlight(true)?.clear()?.home()?.print("Hello, world!")?;
 //! ```
+//! ### Reading from the display
+//! Some I2C adapters support reading data from the HD44780 controller. Dor the I2C adapters that support it, the `read_device_data` method can be used to read
+//! from either the CGRAM or DDRAM at the current cursor position. The `read_address_counter` method can be used to read the address counter from the HD44780 controller.
+//! In both cases, the specific meaning of the data depends on the prior commands sent to the display. See the HD44780 datasheet for more information.
+//!
 //! ### Multiple HD44780 controller character displays
 //! Some character displays, such as the 40x4 display, use two HD44780 controllers to drive the display. This library supports these displays by
 //! treating them as one logical display with multiple HD44780 controllers. The `CharacterDisplayDualHD44780` type is used to control these displays.
@@ -171,7 +178,7 @@ where
         match err {
             adapter_config::AdapterError::I2CError(i2c_err) => Error::I2cError(i2c_err),
             _ => Error::AdapterError(err),
-         }
+        }
     }
 }
 
@@ -417,13 +424,17 @@ where
             self.display_function[device] = LCD_FLAG_4BITMODE | LCD_FLAG_5x8_DOTS | LCD_FLAG_2LINE;
 
             // Put LCD into 4 bit mode, device starts in 8 bit mode
-            self.device.write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
+            self.device
+                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
             self.delay.delay_ms(5);
-            self.device.write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
+            self.device
+                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
             self.delay.delay_ms(5);
-            self.device.write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
+            self.device
+                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
             self.delay.delay_us(150);
-            self.device.write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x02)?;
+            self.device
+                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x02)?;
 
             self.send_command_to_device(
                 LCD_CMD_FUNCTIONSET | self.display_function[device],
@@ -465,7 +476,9 @@ where
 
     /// Sends a command datum to a specific HD44780 controller device. Normally users do not need to call this directly.
     fn send_command_to_device(&mut self, command: u8, device: usize) -> Result<(), Error<I2C>> {
-        self.device.write_byte_to_device(&mut self.i2c, self.address, device, false, command).map_err(Error::AdapterError)
+        self.device
+            .write_byte_to_device(&mut self.i2c, self.address, device, false, command)
+            .map_err(Error::AdapterError)
     }
 
     /// Writes a data byte to the display. Normally users do not need to call this directly.
@@ -476,7 +489,9 @@ where
 
     /// Writes a data byte to a specific HD44780 controller device. Normally users do not need to call this directly.
     fn write_data_to_device(&mut self, data: u8, device: usize) -> Result<(), Error<I2C>> {
-        self.device.write_byte_to_device(&mut self.i2c, self.address, device, true, data).map_err(Error::AdapterError)
+        self.device
+            .write_byte_to_device(&mut self.i2c, self.address, device, true, data)
+            .map_err(Error::AdapterError)
     }
 
     /// Reads into the buffer data from the display device either the CGRAM or DDRAM at the current cursor position.
@@ -781,7 +796,8 @@ where
     pub fn backlight(&mut self, on: bool) -> Result<&mut Self, Error<I2C>> {
         self.device.set_backlight(on);
         self.device.set_enable(false, self.active_device)?;
-        self.device.write_bits_to_gpio(&mut self.i2c, self.address)?;
+        self.device
+            .write_bits_to_gpio(&mut self.i2c, self.address)?;
         Ok(self)
     }
 }
