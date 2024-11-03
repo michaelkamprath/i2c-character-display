@@ -86,6 +86,8 @@
 //!
 #![no_std]
 #![allow(dead_code, non_camel_case_types, non_upper_case_globals)]
+use core::fmt::Display;
+
 use embedded_hal::{delay::DelayNs, i2c};
 
 // commands
@@ -148,6 +150,8 @@ where
     AdapterError(adapter_config::AdapterError),
     /// The discplay type is not compatible with specific adapter.
     UnsupportedDisplayType,
+    /// Read operation is not supported by the adapter
+    ReadNotSupported,
 }
 
 impl<I2C> From<core::fmt::Error> for Error<I2C>
@@ -168,20 +172,33 @@ where
     }
 }
 
+impl<I2C> From<&Error<I2C>> for &'static str
+where
+    I2C: i2c::I2c,
+{
+    fn from(err: &Error<I2C>) -> Self {
+        match err {
+            Error::I2cError(_) => "I2C error",
+            Error::RowOutOfRange => "Row out of range",
+            Error::ColumnOutOfRange => "Column out of range",
+            Error::FormattingError(_) => "Formatting error",
+            Error::AdapterError(e) => match e {
+                adapter_config::AdapterError::BadDeviceId => "Bad device ID",
+            },
+            Error::UnsupportedDisplayType => "Unsupported display type",
+            Error::ReadNotSupported => "Read operation not supported",
+        }
+    }
+}
+
 #[cfg(feature = "defmt")]
 impl<I2C> defmt::Format for Error<I2C>
 where
     I2C: i2c::I2c,
 {
     fn format(&self, fmt: defmt::Formatter) {
-        match self {
-            Error::I2cError(_e) => defmt::write!(fmt, "I2C error"),
-            Error::RowOutOfRange => defmt::write!(fmt, "Row out of range"),
-            Error::ColumnOutOfRange => defmt::write!(fmt, "Column out of range"),
-            Error::FormattingError(_e) => defmt::write!(fmt, "Formatting error"),
-            Error::AdapterError(e) => defmt::write!(fmt, "Adapter error: {}", e),
-            Error::UnsupportedDisplayType => defmt::write!(fmt, "Unsupported display type"),
-        }
+        let msg: &'static str = From::from(self);
+        defmt::write!(fmt, "{}", msg);
     }
 }
 
@@ -194,16 +211,21 @@ where
     where
         W: ufmt::uWrite + ?Sized,
     {
-        match self {
-            Error::I2cError(_e) => ufmt::uwrite!(w, "I2C error"),
-            Error::RowOutOfRange => ufmt::uwrite!(w, "Row out of range"),
-            Error::ColumnOutOfRange => ufmt::uwrite!(w, "Column out of range"),
-            Error::FormattingError(_e) => ufmt::uwrite!(w, "Formatting error"),
-            Error::AdapterError(e) => ufmt::uwrite!(w, "Adapter error: {}", e),
-            Error::UnsupportedDisplayType => ufmt::uwrite!(w, "Unsupported display type"),
-        }
+        let msg: &'static str = From::from(self);
+        ufmt::uwrite!(w, "{}", msg)
     }
 }
+
+impl<I2C> Display for Error<I2C>
+where
+    I2C: i2c::I2c,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let msg: &'static str = From::from(self);
+        write!(f, "{}", msg)
+    }
+}
+
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 /// The type of LCD display. This is used to determine the number of rows and columns, and the row offsets.
@@ -224,18 +246,25 @@ pub enum LcdDisplayType {
     Lcd40x4,
 }
 
+impl From<&LcdDisplayType> for &'static str {
+    fn from(display_type: &LcdDisplayType) -> Self {
+        match display_type {
+            LcdDisplayType::Lcd20x4 => "20x4",
+            LcdDisplayType::Lcd20x2 => "20x2",
+            LcdDisplayType::Lcd16x2 => "16x2",
+            LcdDisplayType::Lcd16x4 => "16x4",
+            LcdDisplayType::Lcd8x2 => "8x2",
+            LcdDisplayType::Lcd40x2 => "40x2",
+            LcdDisplayType::Lcd40x4 => "40x4",
+        }
+    }
+}
+
 #[cfg(feature = "defmt")]
 impl defmt::Format for LcdDisplayType {
     fn format(&self, fmt: defmt::Formatter) {
-        match self {
-            LcdDisplayType::Lcd20x4 => defmt::write!(fmt, "20x4"),
-            LcdDisplayType::Lcd20x2 => defmt::write!(fmt, "20x2"),
-            LcdDisplayType::Lcd16x2 => defmt::write!(fmt, "16x2"),
-            LcdDisplayType::Lcd16x4 => defmt::write!(fmt, "16x4"),
-            LcdDisplayType::Lcd8x2 => defmt::write!(fmt, "8x2"),
-            LcdDisplayType::Lcd40x2 => defmt::write!(fmt, "40x2"),
-            LcdDisplayType::Lcd40x4 => defmt::write!(fmt, "40x4"),
-        }
+        let msg: &'static str = From::from(self);
+        defmt::write!(fmt, "{}", msg);
     }
 }
 
@@ -245,15 +274,15 @@ impl ufmt::uDisplay for LcdDisplayType {
     where
         W: ufmt::uWrite + ?Sized,
     {
-        match self {
-            LcdDisplayType::Lcd20x4 => ufmt::uwrite!(w, "20x4"),
-            LcdDisplayType::Lcd20x2 => ufmt::uwrite!(w, "20x2"),
-            LcdDisplayType::Lcd16x2 => ufmt::uwrite!(w, "16x2"),
-            LcdDisplayType::Lcd16x4 => ufmt::uwrite!(w, "16x4"),
-            LcdDisplayType::Lcd8x2 => ufmt::uwrite!(w, "8x2"),
-            LcdDisplayType::Lcd40x2 => ufmt::uwrite!(w, "40x2"),
-            LcdDisplayType::Lcd40x4 => ufmt::uwrite!(w, "40x4"),
-        }
+        let msg: &'static str = From::from(self);
+        ufmt::uwrite!(w, "{}", msg)
+    }
+}
+
+impl Display for LcdDisplayType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let msg: &'static str = From::from(self);
+        write!(f, "{}", msg)
     }
 }
 
@@ -472,10 +501,26 @@ where
         Ok(())
     }
 
-    fn read_8_bits(&mut self, device: usize) -> Result<u8, Error<I2C>> {
+    /// Reads into the buffer data from the display device RAM at the current cursor position.
+    /// For multiple devices, this reads from the currently active device as set by the cursor position.
+    /// The amount of data read is determined by the length of the buffer.
+    pub fn read_data_to_buffer(&mut self, buffer: &mut [u8]) -> Result<(), Error<I2C>> {
+        if DEVICE::supports_reads() == false {
+            return Err(Error::ReadNotSupported);
+        }
+        for i in 0..buffer.len() {
+            buffer[i] = self.device.read_from_gpio(&mut self.i2c, self.address, true).map_err(Error::I2cError)?;
+        }
+        Ok(())
+    }
 
-
-        Ok(0)
+    pub fn read_address_counter(&mut self) -> Result<u8, Error<I2C>> {
+        if DEVICE::supports_reads() == false {
+            return Err(Error::ReadNotSupported);
+        }
+        let addr = self.device.read_from_gpio(&mut self.i2c, self.address, false).map_err(Error::I2cError)?;
+        // mask off the busy flag
+        Ok(addr&0x7F)
     }
 
     //--------------------------------------------------------------------------------------------------

@@ -2,6 +2,8 @@ pub mod adafruit_lcd_backpack;
 pub mod dual_hd44780;
 pub mod generic_pcf8574t;
 
+use core::fmt::Display;
+
 use crate::LcdDisplayType;
 use embedded_hal::i2c;
 
@@ -32,16 +34,32 @@ impl ufmt::uDisplay for AdapterError {
     }
 }
 
+impl Display for AdapterError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            AdapterError::BadDeviceId => write!(f, "BadDeviceId"),
+        }
+    }
+}
 pub trait AdapterConfigTrait<I2C>: Default
 where
     I2C: i2c::I2c,
 {
     fn bits(&self) -> u8;
     fn default_i2c_address() -> u8;
-    fn supports_reads() -> bool;
-
+    /// Determines if reading from device is supported by this adapter
+    fn supports_reads() -> bool {
+        false
+    }
+    /// Sets the RS pin for the display. A value of `false` indicates an instruction is being sent, while
+    /// a value of `true` indicates data is being sent.
     fn set_rs(&mut self, value: bool);
+
+    /// Sets the RW pin for the display. A value of `false` indicates a write operation, while a value of
+    /// `true` indicates a read operation. Not all displays support reading, so this method may not be
+    /// implemented fully.
     fn set_rw(&mut self, value: bool);
+
     /// Sets the enable pin for the given device. Most displays only have one enable pin, so the device
     /// parameter is ignored. For displays with two enable pins, the device parameter is used to determine
     /// which enable pin to set.
