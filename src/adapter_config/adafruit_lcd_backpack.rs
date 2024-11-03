@@ -44,6 +44,10 @@ where
         0x20
     }
 
+    fn supports_reads() -> bool {
+        false
+    }
+
     fn set_rs(&mut self, value: bool) {
         self.bits.set_rs(value as u8);
     }
@@ -53,7 +57,7 @@ where
         // Not used
     }
 
-    fn set_enable(&mut self, value: bool, _device: usize) -> Result<(), AdapterError> {
+    fn set_enable(&mut self, value: bool, _device: usize) -> Result<(), AdapterError<I2C>> {
         self.bits.set_enable(value as u8);
         Ok(())
     }
@@ -72,10 +76,11 @@ where
         Ok(())
     }
 
-    fn write_bits_to_gpio(&self, i2c: &mut I2C, i2c_address: u8) -> Result<(), I2C::Error> {
+    fn write_bits_to_gpio(&self, i2c: &mut I2C, i2c_address: u8) -> Result<(), AdapterError<I2C>> {
         // first byte is GPIO register address
         let data = [0x09, self.bits.0];
-        i2c.write(i2c_address, &data)?;
+        i2c.write(i2c_address, &data)
+            .map_err(AdapterError::I2CError)?;
         Ok(())
     }
 

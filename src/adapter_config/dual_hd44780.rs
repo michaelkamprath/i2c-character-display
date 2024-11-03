@@ -15,6 +15,12 @@ bitfield! {
     pub data, set_data: 7, 4;
 }
 
+impl Clone for DualHD44780_PCF8574TBitField {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
 pub struct DualHD44780_PCF8574TConfig<I2C> {
     bits: DualHD44780_PCF8574TBitField,
     _marker: PhantomData<I2C>,
@@ -44,6 +50,10 @@ where
         0x27
     }
 
+    fn supports_reads() -> bool {
+        false
+    }
+
     fn set_rs(&mut self, value: bool) {
         self.bits.set_rs(value as u8);
     }
@@ -53,7 +63,7 @@ where
         // does nothing
     }
 
-    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), AdapterError> {
+    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), AdapterError<I2C>> {
         if device == 0 {
             self.bits.set_enable1(value as u8);
         } else if device == 1 {
@@ -98,7 +108,7 @@ mod tests {
     #[test]
     fn test_bad_device_id() {
         let mut config = DualHD44780_PCF8574TConfig::<I2cMock>::default();
-        assert_eq!(config.set_enable(true, 2), Err(AdapterError::BadDeviceId));
+        assert!(config.set_enable(true, 2).is_err());
     }
 
     #[test]
