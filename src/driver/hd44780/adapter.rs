@@ -1,66 +1,12 @@
-pub mod adafruit_lcd_backpack;
-pub mod dual_hd44780;
-pub mod generic_aip31068;
 pub mod generic_pcf8574t;
 
-use core::fmt::Display;
-
-use crate::LcdDisplayType;
+use crate::{CharacterDisplayError, LcdDisplayType};
 use embedded_hal::i2c;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum AdapterError<I2C>
-where
-    I2C: i2c::I2c,
-{
-    /// The device ID was not recognized
-    BadDeviceId,
-    /// An I2C error occurred
-    I2CError(I2C::Error),
-}
-
-#[cfg(feature = "defmt")]
-impl<I2C> defmt::Format for AdapterError<I2C>
-where
-    I2C: i2c::I2c,
-{
-    fn format(&self, fmt: defmt::Formatter) {
-        match self {
-            AdapterError::BadDeviceId => defmt::write!(fmt, "BadDeviceId"),
-            AdapterError::I2CError(_) => defmt::write!(fmt, "I2CError"),
-        }
-    }
-}
-
-#[cfg(feature = "ufmt")]
-impl<I2C> ufmt::uDisplay for AdapterError<I2C>
-where
-    I2C: i2c::I2c,
-{
-    fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
-    where
-        W: ufmt::uWrite + ?Sized,
-    {
-        match self {
-            AdapterError::BadDeviceId => ufmt::uwrite!(w, "BadDeviceId"),
-            AdapterError::I2CError(_) => ufmt::uwrite!(w, "I2CError"),
-        }
-    }
-}
-
-impl<I2C> Display for AdapterError<I2C>
-where
-    I2C: i2c::I2c,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            AdapterError::BadDeviceId => write!(f, "BadDeviceId"),
-            AdapterError::I2CError(_) => write!(f, "I2CError"),
-        }
-    }
-}
-
-pub trait AdapterConfigTrait<I2C>: Default
+/// Trait for implementing an I2C adapter for a specific HD44780 device. Assumes the connection
+/// to the HD44780 controller from the adapter is via a 4 bit interface and the adapter has
+/// 8 GPIO pins available for the 4 bit data interface, RS, RW, and enable pins.
+pub trait HD44780AdapterTrait<I2C>: Default
 where
     I2C: i2c::I2c,
 {
@@ -87,7 +33,7 @@ where
     /// Sets the enable pin for the given device. Most displays only have one enable pin, so the device
     /// parameter is ignored. For displays with two enable pins, the device parameter is used to determine
     /// which enable pin to set.
-    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), AdapterError<I2C>>;
+    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Sets the backlight pin for the display. A value of `true` indicates the backlight is on, while a value
     /// of `false` indicates the backlight is off.
@@ -99,82 +45,97 @@ where
         Ok(())
     }
 
-    fn write_bits_to_gpio(&self, i2c: &mut I2C, i2c_address: u8) -> Result<(), AdapterError<I2C>> {
+    fn write_bits_to_gpio(
+        &self,
+        i2c: &mut I2C,
+        i2c_address: u8,
+    ) -> Result<(), CharacterDisplayError<I2C>> {
         let data = [self.bits()];
         i2c.write(i2c_address, &data)
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
         Ok(())
     }
 
-    /// writes a full byte to the indicated device. If `rs_setting` is `true`, the data is written to the data register,
+    /// writes a full byte to the indicated controller on device. If `rs_setting` is `true`, the data is written to the data register,
     /// either the CGRAM or DDRAM, depending on prior command sent. If `rs_setting` is `false`, the data is written to
     /// command register.
-    fn write_byte_to_device(
+    fn write_byte_to_controller(
         &mut self,
         i2c: &mut I2C,
         i2c_address: u8,
-        device: usize,
+        controller: usize,
         rs_setting: bool,
         value: u8,
-    ) -> Result<(), AdapterError<I2C>> {
-        self.write_nibble_to_device(i2c, i2c_address, device, rs_setting, value >> 4)
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        self.write_nibble_to_controller(i2c, i2c_address, controller, rs_setting, value >> 4)
             .and_then(|_| {
-                self.write_nibble_to_device(i2c, i2c_address, device, rs_setting, value & 0x0F)
+                self.write_nibble_to_controller(
+                    i2c,
+                    i2c_address,
+                    controller,
+                    rs_setting,
+                    value & 0x0F,
+                )
             })
     }
 
-    /// writes the lower nibble of a `value` byte to the indicated device. Typically only used for device initialization in 4 bit mode.
+    /// writes the lower nibble of a `value` byte to the indicated controller on device. Typically only used for device initialization in 4 bit mode.
     /// If `rs_setting` is `true`, the data is written to the data register,
     /// either the CGRAM or DDRAM, depending on prior command sent. If `rs_setting` is `false`, the data is written to
     /// command register.
-    fn write_nibble_to_device(
+    fn write_nibble_to_controller(
         &mut self,
         i2c: &mut I2C,
         i2c_address: u8,
-        device: usize,
+        controller: usize,
         rs_setting: bool,
         value: u8,
-    ) -> Result<(), AdapterError<I2C>> {
+    ) -> Result<(), CharacterDisplayError<I2C>> {
         self.set_rs(rs_setting);
         self.set_rw(false);
 
         // now write the low nibble
         self.set_data(value & 0x0F);
-        self.set_enable(true, device)?;
+        self.set_enable(true, controller)?;
         self.write_bits_to_gpio(i2c, i2c_address)?;
-        self.set_enable(false, device)?;
+        self.set_enable(false, controller)?;
         self.write_bits_to_gpio(i2c, i2c_address)?;
 
         Ok(())
     }
 
-    /// read bytes from the indicated device. The size of the buffer is the number of bytes to read.
+    /// read bytes from the indicated controller on the device. The size of the buffer is the number of bytes to read.
     /// What is read depends on the `rs_setting` parameter. If `rs_setting` is `true`, the data is read
     /// from the data register, either the CGRAM or DDRAM, depending on prior command sent. If `rs_setting`
     /// is `false`, the data is read from the busy flag and address register.
     /// Note that while nothing "breaks" passing a buffer size greater than one when `rs_setting` is `false`,
     /// the data returned will be the same for each byte read.
-    fn read_bytes_from_device(
+    fn read_bytes_from_controller(
         &self,
         _i2c: &mut I2C,
         _i2c_address: u8,
-        _device: usize,
+        _controller: usize,
         _rs_setting: bool,
         _buffer: &mut [u8],
-    ) -> Result<(), AdapterError<I2C>> {
+    ) -> Result<(), CharacterDisplayError<I2C>> {
         unimplemented!("Reads are not supported for device");
     }
 
-    fn is_busy(&self, _i2c: &mut I2C, _i2c_address: u8) -> Result<bool, AdapterError<I2C>> {
+    fn is_busy(
+        &self,
+        _i2c: &mut I2C,
+        _i2c_address: u8,
+    ) -> Result<bool, CharacterDisplayError<I2C>> {
         Ok(false)
     }
 
-    fn device_count(&self) -> usize {
+    fn controller_count(&self) -> usize {
         1
     }
 
-    /// Convert a row number to the row number on the device
-    fn row_to_device_row(&self, row: u8) -> (usize, u8) {
+    /// Convert a row number to the row number for associated controller.
+    /// return tuple is `( controller, row )`
+    fn row_to_controller_row(&self, row: u8) -> (usize, u8) {
         (0, row)
     }
 

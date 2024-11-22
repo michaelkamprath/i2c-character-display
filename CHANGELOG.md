@@ -1,6 +1,7 @@
 # `i2c-character-display` Change Log
 
 ## [Unreleased]
+* Completely refactored code to enable different controller types.
 
 ## [0.3.0] - 2024-11-03
 * Added support for data reads from the LCD Character Display for I2C adapters that support it. Refactored code to support this.
