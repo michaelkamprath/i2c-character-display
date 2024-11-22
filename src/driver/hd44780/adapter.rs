@@ -1,3 +1,4 @@
+pub mod adafruit_lcd_backpack;
 pub mod generic_pcf8574t;
 
 use crate::{CharacterDisplayError, LcdDisplayType};
@@ -10,9 +11,6 @@ pub trait HD44780AdapterTrait<I2C>: Default
 where
     I2C: i2c::I2c,
 {
-    /// Returns the bitfield value for the adapter
-    fn bits(&self) -> u8;
-
     /// Returns the default I2C address for the adapter
     fn default_i2c_address() -> u8;
 
@@ -20,6 +18,17 @@ where
     fn supports_reads() -> bool {
         false
     }
+
+    /// Determines of display type is supported by this adapter
+    fn is_supported(display_type: LcdDisplayType) -> bool;
+
+    /// Perform adapter specific initialization.
+    fn init(&self, _i2c: &mut I2C, _i2c_address: u8) -> Result<(), I2C::Error> {
+        Ok(())
+    }
+
+    /// Returns the bitfield value for the adapter
+    fn bits(&self) -> u8;
 
     /// Sets the RS pin for the display. A value of `false` indicates an instruction is being sent, while
     /// a value of `true` indicates data is being sent.
@@ -30,20 +39,20 @@ where
     /// implemented fully.
     fn set_rw(&mut self, value: bool);
 
-    /// Sets the enable pin for the given device. Most displays only have one enable pin, so the device
-    /// parameter is ignored. For displays with two enable pins, the device parameter is used to determine
+    /// Sets the enable pin for the given controller. Most displays only have one enable pin, so the controller
+    /// parameter is ignored. For displays with two enable pins, the controller parameter is used to determine
     /// which enable pin to set.
-    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), CharacterDisplayError<I2C>>;
+    fn set_enable(
+        &mut self,
+        value: bool,
+        controller: usize,
+    ) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Sets the backlight pin for the display. A value of `true` indicates the backlight is on, while a value
     /// of `false` indicates the backlight is off.
     fn set_backlight(&mut self, value: bool);
 
     fn set_data(&mut self, value: u8);
-
-    fn init(&self, _i2c: &mut I2C, _i2c_address: u8) -> Result<(), I2C::Error> {
-        Ok(())
-    }
 
     fn write_bits_to_gpio(
         &self,
@@ -138,7 +147,4 @@ where
     fn row_to_controller_row(&self, row: u8) -> (usize, u8) {
         (0, row)
     }
-
-    /// Determines of display type is supported by this adapter
-    fn is_supported(display_type: LcdDisplayType) -> bool;
 }

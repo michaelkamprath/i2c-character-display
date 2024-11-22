@@ -2,8 +2,7 @@ pub mod hd44780;
 
 use embedded_hal::{delay::DelayNs, i2c};
 
-use crate::{CharacterDisplayError, DeviceSetupConfig, LcdDisplayType};
-
+use crate::{CharacterDisplayError, DeviceSetupConfig};
 
 pub trait DriverTrait<I2C, DELAY>: Default
 where
@@ -115,5 +114,4 @@ where
         location: u8,
         charmap: [u8; 8],
     ) -> Result<(), CharacterDisplayError<I2C>>;
-
 }

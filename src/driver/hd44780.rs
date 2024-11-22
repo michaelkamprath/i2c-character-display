@@ -5,13 +5,17 @@ use embedded_hal::{delay::DelayNs, i2c};
 
 use crate::{
     driver::{
-        hd44780::adapter::{generic_pcf8574t::GenericPCF8574T, HD44780AdapterTrait},
+        hd44780::adapter::{
+            adafruit_lcd_backpack::AdafruitLCDBackpackAdapter, generic_pcf8574t::GenericPCF8574T,
+            HD44780AdapterTrait,
+        },
         DriverTrait,
     },
-    CharacterDisplayError, DeviceSetupConfig, LcdDisplayType,
+    CharacterDisplayError, DeviceSetupConfig,
 };
 
 pub type GenericHD44780PCF8574T<I2C> = HD44780<GenericPCF8574T<I2C>, I2C>;
+pub type AdafruitLCDBackpack<I2C> = HD44780<AdafruitLCDBackpackAdapter<I2C>, I2C>;
 
 // commands
 const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
