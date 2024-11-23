@@ -278,11 +278,11 @@ where
 
     fn backlight(
         &mut self,
-        device: &mut DeviceSetupConfig<I2C, DELAY>,
-        on: bool,
+        _device: &mut DeviceSetupConfig<I2C, DELAY>,
+        _on: bool,
     ) -> Result<(), CharacterDisplayError<I2C>> {
 
-        Ok(())
+        Err(CharacterDisplayError::UnsupportedOperation)
     }
 
     fn create_char(
@@ -304,8 +304,8 @@ impl<I2C> AIP31068<I2C>
 where
     I2C: i2c::I2c,
 {
-    const CONTROL_NOT_LAST_BYTE: u8 = 0b1000_0000;  // Last control byte. Only a stream of data bytes will follow.
-    const CONTROL_LAST_BYTE: u8 = 0b0000_0000;      // Another control byte will follow the next data byte.
+    const CONTROL_NOT_LAST_BYTE: u8 = 0b1000_0000;  // Another control byte will follow the next data byte.
+    const CONTROL_LAST_BYTE: u8 = 0b0000_0000;      // Last control byte. Only a stream of data bytes will follow.
     const CONTROL_RS_DATA: u8 = 0b0100_0000;
     const CONTROL_RS_COMMAND: u8 = 0b0000_0000;
 

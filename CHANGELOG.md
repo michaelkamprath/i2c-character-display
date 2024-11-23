@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 * Completely refactored code to enable different controller types.
+* Added support for character displays using the AIP31068L controller, which has I2C support built in.
 
 ## [0.3.0] - 2024-11-03
 * Added support for data reads from the LCD Character Display for I2C adapters that support it. Refactored code to support this.

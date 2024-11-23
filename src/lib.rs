@@ -1,13 +1,14 @@
-//! This Rust `embedded-hal`-based library is a simple way to control a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
-//! compatible character display with an "I2C backpack" interface in an embedded, `no_std` environment. A number of I2C adapter interfaces
-//! are supported:
+//! This Rust `embedded-hal`-based library is a simple way to control a character display that has either a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
+//! or [AiP31068](https://support.newhavendisplay.com/hc/en-us/articles/4414486901783--AiP31068) contoller with an I2C interface
+//! in an embedded, `no_std` environment. A number of I2C interfaces are supported:
 //!
-//! - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C backpack that can be used with either I2C
-//!   or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface.
-//! - **PCF8574-based I2C adapter** - These adapters are ubiquitous on eBay and AliExpress and have no clear branding. Furthermore, some character
+//! - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C adapter for HD44780 character displays that can be used with either I2C
+//!   or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface of this adapter.
+//! - **PCF8574-based I2C adapter** - These adapters are ubiquitous on eBay and AliExpress and have no clear branding. Furthermore, some HD44780-based character
 //!   display makers, such as [Surenoo](https://www.surenoo.com), integrate a PCF8574T directly on the display board enabling I2C connections without a seperate adapter.
-//!   The most common pin wiring uses 4 data pins and 3 control pins. Most models have the display 4-bit data pins connected to P4-P7 of the PCF8574.
-//!   This library supports that configuration, though it would be straightforward to add support for other configurations.
+//!   The most common pin wiring uses 4 data pins and 3 control pins. Most models have the display's 4-bit mode data pins connected to P4-P7 of the PCF8574.
+//!   This library supports that configuration, though it would be straightforward to add support for other pin configurations.
+//! - **AiP31068** - This is a character display controller with a built-in I2C support.
 //!
 //! Key features include:
 //! - Convenient high-level API for controlling the display
@@ -17,7 +18,7 @@
 //! - Compatible with the `embedded-hal` traits v1.0 and later
 //! - Support for character displays that uses multiple HD44780 drivers, such as the 40x4 display
 //! - Optional support for the `defmt` and `ufmt` logging frameworks
-//! - Optional support for reading from the display on adapters that support it
+//! - Optional support for reading from the display on controllers and adapters that support it
 //!
 //! ## Usage
 //! Add this to your `Cargo.toml`:
@@ -41,12 +42,14 @@
 //! // It is recommended that the `i2c` object be wrapped in an `embedded_hal_bus::i2c::CriticalSectionDevice` so that it can be shared between
 //! // multiple peripherals.
 //!
-//! // Adafruit backpack
+//! // Adafruit backpack for a single HD44780 controller
 //! let mut lcd = AdafruitLCDBackpack::new(i2c, LcdDisplayType::Lcd16x2, delay);
-//! // PCF8574T adapter
+//! // PCF8574T adapter for a single HD44780 controller
 //! let mut lcd = CharacterDisplayPCF8574T::new(i2c, LcdDisplayType::Lcd16x2, delay);
-//! // Character display with dual HD44780 drivers using a single PCF8574T I2C adapter
+//! // Character display with dual HD44780 controllers using a single PCF8574T I2C adapter
 //! let mut lcd = CharacterDisplayDualHD44780::new(i2c, LcdDisplayType::Lcd40x4, delay);
+//! // Character display with the AiP31068 controller
+//! let mut lcd = CharacterDisplayAIP31068::new(i2c, LcdDisplayType::Lcd16x2, delay);
 //! ```
 //! When creating the display object, you can choose the display type from the `LcdDisplayType` enum. The display type should match the physical
 //! display you are using. This display type configures the number of rows and columns, and the internal row offsets for the display.
@@ -172,6 +175,8 @@ where
     FormattingError(core::fmt::Error),
     /// The discplay type is not compatible with specific adapter.
     UnsupportedDisplayType,
+    /// The requested operation is not supported by the adapter or controller
+    UnsupportedOperation,
     /// Read operation is not supported by the adapter
     ReadNotSupported,
     /// Internal error - bad device ID
@@ -200,6 +205,7 @@ where
             CharacterDisplayError::ColumnOutOfRange => "Column out of range",
             CharacterDisplayError::FormattingError(_) => "Formatting error",
             CharacterDisplayError::UnsupportedDisplayType => "Unsupported display type",
+            CharacterDisplayError::UnsupportedOperation => "Unsupported operation",
             CharacterDisplayError::ReadNotSupported => "Read operation not supported",
             CharacterDisplayError::BadDeviceId => "Bad device ID",
             CharacterDisplayError::BufferTooSmall => "Buffer too small",
@@ -539,7 +545,8 @@ where
         Ok(self)
     }
 
-    /// Turn the backlight on or off
+    /// Turn the backlight on or off.
+    /// Note that the AIP31068 controller does not support backlight control.
     pub fn backlight(&mut self, on: bool) -> Result<&mut Self, CharacterDisplayError<I2C>> {
         self.device.backlight(&mut self.config, on)?;
         Ok(self)
