@@ -107,11 +107,8 @@ pub type AdafruitLCDBackpack<I2C, DELAY> =
 
 /// Character display using dual HD44780 I2C drivers connected using a generic PCF8574T I2C adapter with a pinout that
 /// has two enable pins, one for each HD44780 driver. Typically used for 40x4 character displays.
-pub type CharacterDisplayDualHD44780<I2C, DELAY> = BaseCharacterDisplay<
-    I2C,
-    DELAY,
-    crate::driver::hd44780::DualHD44780PCF8574T<I2C>,
->;
+pub type CharacterDisplayDualHD44780<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, crate::driver::hd44780::DualHD44780PCF8574T<I2C>>;
 
 // commands
 const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
@@ -420,10 +417,7 @@ where
         &mut self,
         buffer: &mut [u8],
     ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
-        if !DEVICE::supports_reads() {
-            return Err(CharacterDisplayError::ReadNotSupported);
-        }
-        todo!();
+        self.device.read_device_data(&mut self.config, buffer)?;
 
         Ok(self)
     }
@@ -432,13 +426,7 @@ where
     /// Not all adapters support reads from the device. This will return an error if the adapter
     /// does not support reads.
     pub fn read_address_counter(&mut self) -> Result<u8, CharacterDisplayError<I2C>> {
-        if !DEVICE::supports_reads() {
-            return Err(CharacterDisplayError::ReadNotSupported);
-        }
-        let mut buffer = [0];
-        todo!();
-        // mask off the busy flag
-        Ok(buffer[0] & 0x7F)
+        self.device.read_address_counter(&mut self.config)
     }
 
     //--------------------------------------------------------------------------------------------------

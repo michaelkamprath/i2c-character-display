@@ -114,4 +114,20 @@ where
         location: u8,
         charmap: [u8; 8],
     ) -> Result<(), CharacterDisplayError<I2C>>;
+
+    /// read bytes from the active controller of the device. The size of the buffer is the number of bytes to read.
+    fn read_device_data(
+        &self,
+        _device: &mut DeviceSetupConfig<I2C, DELAY>,
+        _buffer: &mut [u8],
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        unimplemented!("Reads are not supported for device");
+    }
+
+    fn read_address_counter(
+        &mut self,
+        _device: &mut DeviceSetupConfig<I2C, DELAY>,
+    ) -> Result<u8, CharacterDisplayError<I2C>> {
+        unimplemented!("Reads are not supported for device");
+    }
 }

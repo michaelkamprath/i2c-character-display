@@ -6,7 +6,6 @@ use crate::{CharacterDisplayError, LcdDisplayType};
 
 use super::HD44780AdapterTrait;
 
-
 bitfield! {
     pub struct AdafruitLCDBackpackBitField(u8);
     impl Debug;
@@ -69,7 +68,7 @@ where
     }
 
     fn set_rw(&mut self, _value: bool) {
-        unimplemented!("Reads are not supported for device");
+        // adafruit backpack doesn't use RW
     }
 
     fn set_enable(

@@ -117,11 +117,11 @@ mod tests {
         assert!(config.set_enable(true, 2).is_err());
         assert!(config.bits() == 0);
         assert!(config.set_enable(true, 0).is_ok());
-        assert!(config.bits()&0b0000_0100 != 0);
+        assert!(config.bits() & 0b0000_0100 != 0);
         assert!(config.set_enable(false, 0).is_ok());
         assert!(config.bits() == 0);
         assert!(config.set_enable(true, 1).is_ok());
-        assert!(config.bits()&0b0000_0010 != 0);
+        assert!(config.bits() & 0b0000_0010 != 0);
         assert!(config.set_enable(false, 1).is_ok());
         assert!(config.bits() == 0);
     }

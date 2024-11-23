@@ -6,8 +6,9 @@ use embedded_hal::{delay::DelayNs, i2c};
 use crate::{
     driver::{
         hd44780::adapter::{
-            adafruit_lcd_backpack::AdafruitLCDBackpackAdapter, generic_pcf8574t::GenericPCF8574TAdapter, dual_controller_pcf8574t::DualHD44780_PCF8574TAdapter,
-            HD44780AdapterTrait,
+            adafruit_lcd_backpack::AdafruitLCDBackpackAdapter,
+            dual_controller_pcf8574t::DualHD44780_PCF8574TAdapter,
+            generic_pcf8574t::GenericPCF8574TAdapter, HD44780AdapterTrait,
         },
         DriverTrait,
     },
@@ -340,6 +341,44 @@ where
             self.create_char_controller(device, controller, location, charmap)?;
         }
         Ok(())
+    }
+
+    fn read_device_data(
+        &self,
+        device: &mut DeviceSetupConfig<I2C, DELAY>,
+        buffer: &mut [u8],
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        if !ADAPTER::supports_reads() {
+            return Err(CharacterDisplayError::ReadNotSupported);
+        }
+
+        self.adapter.read_bytes_from_controller(
+            &mut device.i2c,
+            device.address,
+            self.active_controller,
+            true,
+            buffer,
+        )
+    }
+
+    fn read_address_counter(
+        &mut self,
+        device: &mut DeviceSetupConfig<I2C, DELAY>,
+    ) -> Result<u8, CharacterDisplayError<I2C>> {
+        if !ADAPTER::supports_reads() {
+            return Err(CharacterDisplayError::ReadNotSupported);
+        }
+        let mut buffer = [0];
+
+        self.adapter.read_bytes_from_controller(
+            &mut device.i2c,
+            device.address,
+            self.active_controller,
+            false,
+            &mut buffer,
+        )?;
+        // mask off the busy flag
+        Ok(buffer[0] & 0x7F)
     }
 }
 

@@ -210,7 +210,10 @@ mod tests {
         config.set_data(0b1010);
 
         assert_eq!(config.bits(), 0b10101101);
-        assert_eq!(GenericPCF8574TAdapter::<I2cMock>::default_i2c_address(), 0x27);
+        assert_eq!(
+            GenericPCF8574TAdapter::<I2cMock>::default_i2c_address(),
+            0x27
+        );
 
         config.set_rs(false);
         config.set_rw(true);

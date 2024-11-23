@@ -1,6 +1,6 @@
 pub mod adafruit_lcd_backpack;
-pub mod generic_pcf8574t;
 pub mod dual_controller_pcf8574t;
+pub mod generic_pcf8574t;
 
 use crate::{CharacterDisplayError, LcdDisplayType};
 use embedded_hal::i2c;
