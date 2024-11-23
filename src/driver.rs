@@ -1,4 +1,5 @@
 pub mod hd44780;
+pub mod aip31068;
 
 use embedded_hal::{delay::DelayNs, i2c};
 

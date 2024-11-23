@@ -110,6 +110,10 @@ pub type AdafruitLCDBackpack<I2C, DELAY> =
 pub type CharacterDisplayDualHD44780<I2C, DELAY> =
     BaseCharacterDisplay<I2C, DELAY, crate::driver::hd44780::DualHD44780PCF8574T<I2C>>;
 
+/// Character display using the AIP31068 controller with built-in I2C adapter.
+pub type CharacterDisplayAIP31068<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, crate::driver::aip31068::AIP31068<I2C>>;
+
 // commands
 const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
 const LCD_CMD_RETURNHOME: u8 = 0x02; //  Set cursor position to zero
@@ -172,6 +176,8 @@ where
     ReadNotSupported,
     /// Internal error - bad device ID
     BadDeviceId,
+    /// Internal error - buffer too small
+    BufferTooSmall,
 }
 
 impl<I2C> From<core::fmt::Error> for CharacterDisplayError<I2C>
@@ -196,6 +202,7 @@ where
             CharacterDisplayError::UnsupportedDisplayType => "Unsupported display type",
             CharacterDisplayError::ReadNotSupported => "Read operation not supported",
             CharacterDisplayError::BadDeviceId => "Bad device ID",
+            CharacterDisplayError::BufferTooSmall => "Buffer too small",
         }
     }
 }
@@ -539,9 +546,9 @@ where
     }
 }
 
-/// Implement the `core::fmt::Write` trait for the LCD backpack, allowing it to be used with the `write!` macro.
+/// Implement the `core::fmt::Write` trait, allowing it to be used with the `write!` macro.
 /// This is a convenience method for printing to the display. For multi-device, this will print to the active device as set by
-/// `set_cursor`. If you need to print to a specific device, use the `print` method.
+/// `set_cursor`.
 impl<I2C, DELAY, DEVICE> core::fmt::Write for BaseCharacterDisplay<I2C, DELAY, DEVICE>
 where
     I2C: i2c::I2c,
@@ -557,9 +564,9 @@ where
 }
 
 #[cfg(feature = "ufmt")]
-/// Implement the `ufmt::uWrite` trait for the LCD backpack, allowing it to be used with the `uwriteln!` and `uwrite!` macros.
+/// Implement the `ufmt::uWrite` trait, allowing it to be used with the `uwriteln!` and `uwrite!` macros.
 /// This is a convenience method for printing to the display. For multi-device, this will print to the active device as set by
-/// `set_cursor`. If you need to print to a specific device, use the `print` method.
+/// `set_cursor`.
 impl<I2C, DELAY, DEVICE> ufmt::uWrite for BaseCharacterDisplay<I2C, DELAY, DEVICE>
 where
     I2C: i2c::I2c,
