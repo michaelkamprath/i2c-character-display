@@ -761,4 +761,60 @@ mod lib_tests {
         // finish the i2c mock
         device.i2c.done();
     }
+
+    #[test]
+    fn test_set_cursor_out_of_range() {
+        let i2c_address = 0x27_u8;
+        let i2c = I2cMock::new(&[]);
+        let mut driver = GenericHD44780PCF8574T::default();
+
+        let mut device = DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        };
+
+        assert!(driver.set_cursor(&mut device, 20, 0).is_err());
+        assert!(driver.set_cursor(&mut device, 0, 20).is_err());
+
+        // finish the i2c mock
+        device.i2c.done();
+    }
+
+    #[test]
+    fn test_set_cursor_dual_controller() {
+        let i2c_address = 0x27_u8;
+        let i2c = I2cMock::new(&[
+            // first set cursor to (20,1), which on first controller
+            // command = LCD_CMD_SETDDRAMADDR = 0x80
+            // cursor = 20 + (row 1 offset =0x40) = 0x14 + 0x40 = 0x54)
+            // byte to send = 0x80 | 0x54 = 0xD4
+            I2cTransaction::write(i2c_address, std::vec![0b1101_0100]), // high nibble 0xD, rw=0, enable1=1, enabl2=0
+            I2cTransaction::write(i2c_address, std::vec![0b1101_0000]), // high nibble 0xD, rw=0, enable1=0, enabl2=0
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0100]), // low nibble 0x4, rw=0, enable1=1, enabl2=0
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0000]), // low nibble 0x4, rw=0, enable1=0, enabl2=0
+            // now set cursor to (10,2), which is in the second controller
+            // command = LCD_CMD_SETDDRAMADDR = 0x80
+            // cursor = 10 + (2 row offset = 0x00) = 0x0A + 0x00
+            // byte to send = 0x80 | 0x0A = 0x8A
+            I2cTransaction::write(i2c_address, std::vec![0b1000_0010]), // high nibble 0x8, rw=0, enable1=0, enabl2=1
+            I2cTransaction::write(i2c_address, std::vec![0b1000_0000]), // high nibble 0x8, rw=0, enable1=0, enabl2=0
+            I2cTransaction::write(i2c_address, std::vec![0b1010_0010]), // low nibble 0xA, rw=0, enable1=0, enabl2=1
+            I2cTransaction::write(i2c_address, std::vec![0b1010_0000]), // low nibble 0xA, rw=0, enable1=0, enabl2=0
+
+        ]);
+        let mut driver = DualHD44780PCF8574T::<I2cMock>::default();
+        let mut device = DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd40x4,
+            delay: NoopDelay,
+        };
+        assert!(driver.set_cursor(&mut device, 20, 1).is_ok());
+        assert!(driver.set_cursor(&mut device, 10, 2).is_ok());
+
+        // finish the i2c mock
+        device.i2c.done();
+    }
 }

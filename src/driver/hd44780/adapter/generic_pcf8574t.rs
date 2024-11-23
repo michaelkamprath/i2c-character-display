@@ -226,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generic_pcf8574t_write_byte() {
+    fn test_generic_pcf8574t_write_bits() {
         let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
         config.set_rs(true);
         config.set_rw(false);
@@ -238,6 +238,36 @@ mod tests {
         let mut i2c = I2cMock::new(&expected_transactions);
 
         config.write_bits_to_gpio(&mut i2c, 0x27).unwrap();
+        i2c.done();
+    }
+
+    #[test]
+    fn test_generic_pcf8574t_write_byte() {
+        let expected_transactions = [
+            // wrtie byte 0xDE with RS = 1
+            // write high nibble
+            I2cTransaction::write(0x27, std::vec![0b11010101]), // enable = 1, rs = 1
+            I2cTransaction::write(0x27, std::vec![0b11010001]), // enable = 0, rs = 1
+            // write low nibble
+            I2cTransaction::write(0x27, std::vec![0b11100101]), // enable = 1, rs = 1
+            I2cTransaction::write(0x27, std::vec![0b11100001]), // enable = 0, rs = 1
+            // wrtie byte 0xAD with RS = 0
+            // write high nibble
+            I2cTransaction::write(0x27, std::vec![0b10100100]), // enable = 1, rs = 0
+            I2cTransaction::write(0x27, std::vec![0b10100000]), // enable = 0, rs = 0
+            // write low nibble
+            I2cTransaction::write(0x27, std::vec![0b11010100]), // enable = 1, rs = 0
+            I2cTransaction::write(0x27, std::vec![0b11010000]), // enable = 0, rs = 0
+        ];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
+        assert!(config
+            .write_byte_to_controller(&mut i2c, 0x27, 0, true, 0xDE)
+            .is_ok());
+        assert!(config
+            .write_byte_to_controller(&mut i2c, 0x27, 0, false, 0xAD)
+            .is_ok());
         i2c.done();
     }
 
@@ -316,5 +346,12 @@ mod tests {
 
         assert_eq!(is_busy, false);
         i2c.done();
+    }
+
+    #[test]
+    fn test_set_enable_controllor_out_of_range() {
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
+        assert!(config.set_enable(true, 1).is_err());
+        assert!(config.set_enable(true, 0).is_ok());
     }
 }
