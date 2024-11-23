@@ -6,7 +6,7 @@ use crate::{CharacterDisplayError, LcdDisplayType};
 
 use super::HD44780AdapterTrait;
 
-// Configuration for the MCP23008 based LCD backpack from Adafruit
+
 bitfield! {
     pub struct AdafruitLCDBackpackBitField(u8);
     impl Debug;
@@ -23,6 +23,7 @@ impl Clone for AdafruitLCDBackpackBitField {
     }
 }
 
+/// AdaFruit branded HD44780 I2C adapter based on the MCP23008 I2C GPIO expander
 #[derive(Clone)]
 pub struct AdafruitLCDBackpackAdapter<I2C> {
     bits: AdafruitLCDBackpackBitField,
@@ -68,7 +69,7 @@ where
     }
 
     fn set_rw(&mut self, _value: bool) {
-        // Not used
+        unimplemented!("Reads are not supported for device");
     }
 
     fn set_enable(

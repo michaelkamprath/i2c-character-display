@@ -27,12 +27,12 @@ impl Clone for GenericPCF8574TBitField {
 /// Adapter based on the PCF8574T I2C GPIO expander interfacing with the HD44780 LCD controller
 /// via a 4-bit interface.
 #[derive(Clone)]
-pub struct GenericPCF8574T<I2C> {
+pub struct GenericPCF8574TAdapter<I2C> {
     bits: GenericPCF8574TBitField,
     _marker: PhantomData<I2C>,
 }
 
-impl<I2C> Default for GenericPCF8574T<I2C> {
+impl<I2C> Default for GenericPCF8574TAdapter<I2C> {
     fn default() -> Self {
         Self {
             bits: GenericPCF8574TBitField(0),
@@ -41,7 +41,7 @@ impl<I2C> Default for GenericPCF8574T<I2C> {
     }
 }
 
-impl<I2C> HD44780AdapterTrait<I2C> for GenericPCF8574T<I2C>
+impl<I2C> HD44780AdapterTrait<I2C> for GenericPCF8574TAdapter<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -186,23 +186,23 @@ mod tests {
     #[test]
     fn test_generic_pcf8574t_compatiple_lcd_types() {
         // not exhaustive for compatible displays (is_supported == true)
-        assert!(GenericPCF8574T::<I2cMock>::is_supported(
+        assert!(GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd16x2
         ));
-        assert!(GenericPCF8574T::<I2cMock>::is_supported(
+        assert!(GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd20x4
         ));
-        assert!(GenericPCF8574T::<I2cMock>::is_supported(
+        assert!(GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd40x2
         ));
-        assert!(!GenericPCF8574T::<I2cMock>::is_supported(
+        assert!(!GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd40x4
         ));
     }
 
     #[test]
     fn test_generic_pcf8574t_bits() {
-        let mut config = GenericPCF8574T::<I2cMock>::default();
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
         config.set_rs(true);
         config.set_rw(false);
         assert!(config.set_enable(true, 0).is_ok());
@@ -210,7 +210,7 @@ mod tests {
         config.set_data(0b1010);
 
         assert_eq!(config.bits(), 0b10101101);
-        assert_eq!(GenericPCF8574T::<I2cMock>::default_i2c_address(), 0x27);
+        assert_eq!(GenericPCF8574TAdapter::<I2cMock>::default_i2c_address(), 0x27);
 
         config.set_rs(false);
         config.set_rw(true);
@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_generic_pcf8574t_write_byte() {
-        let mut config = GenericPCF8574T::<I2cMock>::default();
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
         config.set_rs(true);
         config.set_rw(false);
         assert!(config.set_enable(true, 0).is_ok());
@@ -282,7 +282,7 @@ mod tests {
         ];
         let mut i2c = I2cMock::new(&expected_transactions);
 
-        let config = GenericPCF8574T::<I2cMock>::default();
+        let config = GenericPCF8574TAdapter::<I2cMock>::default();
 
         let buffer = &mut [0u8; 2];
         assert!(config
@@ -307,7 +307,7 @@ mod tests {
         ];
         let mut i2c = I2cMock::new(&expected_transactions);
 
-        let config = GenericPCF8574T::<I2cMock>::default();
+        let config = GenericPCF8574TAdapter::<I2cMock>::default();
 
         let is_busy = config.is_busy(&mut i2c, 0x27).unwrap();
 

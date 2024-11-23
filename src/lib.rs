@@ -97,21 +97,21 @@ use core::fmt::Display;
 
 use embedded_hal::{delay::DelayNs, i2c};
 
-/// Character display using a generic PCF8574T I2C adapter.
+/// HD44780 based character display using a generic PCF8574T I2C adapter.
 pub type CharacterDisplayPCF8574T<I2C, DELAY> =
     BaseCharacterDisplay<I2C, DELAY, crate::driver::hd44780::GenericHD44780PCF8574T<I2C>>;
 
-/// Character display using an Adafruit I2C/SPI LCD backpack.
+/// HD44780 based character display using an Adafruit I2C/SPI LCD backpack adapter.
 pub type AdafruitLCDBackpack<I2C, DELAY> =
     BaseCharacterDisplay<I2C, DELAY, crate::driver::hd44780::AdafruitLCDBackpack<I2C>>;
 
-// /// Character display using dual HD44780 I2C drivers connected using a generic PCF8574T I2C adapter with a pinout that
-// /// has two enable pins, one for each HD44780 driver. Typically used for 40x4 character displays.
-// pub type CharacterDisplayDualHD44780<I2C, DELAY> = BaseCharacterDisplay<
-//     I2C,
-//     DELAY,
-//     crate::adapter_config::dual_hd44780::DualHD44780_PCF8574TConfig<I2C>,
-// >;
+/// Character display using dual HD44780 I2C drivers connected using a generic PCF8574T I2C adapter with a pinout that
+/// has two enable pins, one for each HD44780 driver. Typically used for 40x4 character displays.
+pub type CharacterDisplayDualHD44780<I2C, DELAY> = BaseCharacterDisplay<
+    I2C,
+    DELAY,
+    crate::driver::hd44780::DualHD44780PCF8574T<I2C>,
+>;
 
 // commands
 const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
