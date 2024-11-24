@@ -1,6 +1,6 @@
 [package]
 name = "i2c-character-display"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Driver for HD44780-based character displays connected via a I2C adapter"
 license = "MIT"

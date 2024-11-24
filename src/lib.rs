@@ -8,12 +8,13 @@
 //!   display makers, such as [Surenoo](https://www.surenoo.com), integrate a PCF8574T directly on the display board enabling I2C connections without a seperate adapter.
 //!   The most common pin wiring uses 4 data pins and 3 control pins. Most models have the display's 4-bit mode data pins connected to P4-P7 of the PCF8574.
 //!   This library supports that configuration, though it would be straightforward to add support for other pin configurations.
-//! - **AiP31068** - This is a character display controller with a built-in I2C support.
+//! - **AiP31068** - This is a character display controller with a built-in I2C support. The command set is similar to the HD44780, but the controller
+//!   operates in 8-bit mode and is initialized differently.
 //!
 //! Key features include:
-//! - Convenient high-level API for controlling the display
+//! - Convenient high-level API for controlling many types of character display
 //! - Support for custom characters
-//! - Backlight control
+//! - Backlight control on hardwarware that supports it
 //! - `core::fmt::Write` implementation for easy use with the `write!` macro
 //! - Compatible with the `embedded-hal` traits v1.0 and later
 //! - Support for character displays that uses multiple HD44780 drivers, such as the 40x4 display
@@ -24,7 +25,7 @@
 //! Add this to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! i2c-character-display = { version = "0.1", features = ["defmt"] }
+//! i2c-character-display = { version = "0.4", features = ["defmt"] }
 //! ```
 //! The `features = ["defmt"]` line is optional and enables the `defmt` feature, which allows the library's errors to be used with the `defmt` logging
 //! framework. Another optional feature is `features = ["ufmt"]`, which enables the `ufmt` feature, allowing the `uwriteln!` and `uwrite!` macros to be used.
@@ -87,6 +88,10 @@
 //! Some I2C adapters support reading data from the HD44780 controller. For the I2C adapters that support it, the `read_device_data` method can be used to read
 //! from either the CGRAM or DDRAM at the current cursor position. The `read_address_counter` method can be used to read the address counter from the HD44780 controller.
 //! In both cases, the specific meaning of the data depends on the prior commands sent to the display. See the HD44780 datasheet for more information.
+//!
+//! ### Backlight control
+//! All HD44780 controllers support backlight control. The `backlight` method can be used to turn the backlight on or off. The AiP31068 controller does not support
+//! backlight control, and calling the `backlight` method with a AiP31068 controller will return an error.
 //!
 //! ### Multiple HD44780 controller character displays
 //! Some character displays, such as the 40x4 display, use two HD44780 controllers to drive the display. This library supports these displays by

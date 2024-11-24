@@ -1,7 +1,10 @@
 # `i2c-character-display` Change Log
 
 ## [Unreleased]
+
+## [0.4.0] - 2024-11-24
 * Completely refactored code to enable different controller types.
+* Improved error handling and test coverage.
 * Added support for character displays using the AIP31068L controller, which has I2C support built in.
 
 ## [0.3.0] - 2024-11-03
@@ -20,6 +23,8 @@
 ## 0.1.0
 Initial release. Support for both Generic PCF8574T I2C and Adafruit Backpack character display adapters.
 
-[Unreleased]: https://github.com/michaelkamprath/bespokeasm/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/michaelkamprath/bespokeasm/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/michaelkamprath/bespokeasm/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/michaelkamprath/bespokeasm/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/michaelkamprath/bespokeasm/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/michaelkamprath/bespokeasm/compare/v0.1.0...v0.2.0
