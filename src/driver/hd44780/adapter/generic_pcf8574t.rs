@@ -2,9 +2,9 @@ use bitfield::bitfield;
 use core::marker::PhantomData;
 use embedded_hal::i2c;
 
-use crate::LcdDisplayType;
+use crate::{CharacterDisplayError, LcdDisplayType};
 
-use super::{AdapterConfigTrait, AdapterError};
+use super::HD44780AdapterTrait;
 
 // Configuration for the PCF8574T based 4-bit LCD interface sold
 bitfield! {
@@ -24,16 +24,15 @@ impl Clone for GenericPCF8574TBitField {
     }
 }
 
+/// Adapter based on the PCF8574T I2C GPIO expander interfacing with the HD44780 LCD controller
+/// via a 4-bit interface.
 #[derive(Clone)]
-pub struct GenericPCF8574TConfig<I2C> {
+pub struct GenericPCF8574TAdapter<I2C> {
     bits: GenericPCF8574TBitField,
     _marker: PhantomData<I2C>,
 }
 
-impl<I2C> Default for GenericPCF8574TConfig<I2C>
-where
-    I2C: i2c::I2c,
-{
+impl<I2C> Default for GenericPCF8574TAdapter<I2C> {
     fn default() -> Self {
         Self {
             bits: GenericPCF8574TBitField(0),
@@ -42,7 +41,7 @@ where
     }
 }
 
-impl<I2C> AdapterConfigTrait<I2C> for GenericPCF8574TConfig<I2C>
+impl<I2C> HD44780AdapterTrait<I2C> for GenericPCF8574TAdapter<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -58,14 +57,17 @@ where
         true
     }
 
-    fn read_bytes_from_device(
+    fn read_bytes_from_controller(
         &self,
         i2c: &mut I2C,
         i2c_address: u8,
-        _device: usize,
+        controller: usize,
         rs_setting: bool,
         buffer: &mut [u8],
-    ) -> Result<(), AdapterError<I2C>> {
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        if controller != 0 {
+            return Err(CharacterDisplayError::BadDeviceId);
+        }
         // wait for the BUSY flag to clear
         while self.is_busy(i2c, i2c_address)? {
             // wait
@@ -78,7 +80,7 @@ where
         data_cntl.set_rs(rs_setting as u8);
         data_cntl.set_rw(1); // read
         i2c.write(i2c_address, &[data_cntl.0])
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
 
         // not that is is set up, read bytes into buffer
         let mut data_buf = [0];
@@ -87,29 +89,29 @@ where
             // read high nibble
             data_cntl.set_enable(1);
             i2c.write(i2c_address, &[data_cntl.0])
-                .map_err(AdapterError::I2CError)?;
+                .map_err(CharacterDisplayError::I2cError)?;
             i2c.read(i2c_address, &mut data_buf)
-                .map_err(AdapterError::I2CError)?;
+                .map_err(CharacterDisplayError::I2cError)?;
             data_cntl.set_enable(0);
             i2c.write(i2c_address, &[data_cntl.0])
-                .map_err(AdapterError::I2CError)?;
+                .map_err(CharacterDisplayError::I2cError)?;
             *byte = GenericPCF8574TBitField(data_buf[0]).data() << 4;
 
             // read low nibble
             data_cntl.set_enable(1);
             i2c.write(i2c_address, &[data_cntl.0])
-                .map_err(AdapterError::I2CError)?;
+                .map_err(CharacterDisplayError::I2cError)?;
             i2c.read(i2c_address, &mut data_buf)
-                .map_err(AdapterError::I2CError)?;
+                .map_err(CharacterDisplayError::I2cError)?;
             data_cntl.set_enable(0);
             i2c.write(i2c_address, &[data_cntl.0])
-                .map_err(AdapterError::I2CError)?;
+                .map_err(CharacterDisplayError::I2cError)?;
             *byte |= GenericPCF8574TBitField(data_buf[0]).data() & 0x0F;
         }
         Ok(())
     }
 
-    fn is_busy(&self, i2c: &mut I2C, i2c_address: u8) -> Result<bool, AdapterError<I2C>> {
+    fn is_busy(&self, i2c: &mut I2C, i2c_address: u8) -> Result<bool, CharacterDisplayError<I2C>> {
         // need to set all data bits to HIGH to read, per PFC8574 data sheet description of Quasi-bidirectional I/Os
         let mut setup = self.bits.clone();
         setup.set_data(0b1111);
@@ -117,27 +119,27 @@ where
         setup.set_rw(1);
         setup.set_enable(0);
         i2c.write(i2c_address, &[setup.0])
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
         // need two enable cycles to read the data, but the busy flag is in the 4th bit of the first
         // nibble, so we only need to read the first nibble
         setup.set_enable(1);
         i2c.write(i2c_address, &[setup.0])
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
         let mut data = [0];
         i2c.read(i2c_address, &mut data)
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
         let read_data = GenericPCF8574TBitField(data[0]);
         // turn off the enable bit so next nibble can be read
         setup.set_enable(0);
         i2c.write(i2c_address, &[setup.0])
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
         // toggle enable one more time per the 4-bit interface for the HD44780
         setup.set_enable(1);
         i2c.write(i2c_address, &[setup.0])
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
         setup.set_enable(0);
         i2c.write(i2c_address, &[setup.0])
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
 
         Ok(read_data.data() & 0b1000 != 0)
     }
@@ -150,7 +152,14 @@ where
         self.bits.set_rw(value as u8);
     }
 
-    fn set_enable(&mut self, value: bool, _device: usize) -> Result<(), AdapterError<I2C>> {
+    fn set_enable(
+        &mut self,
+        value: bool,
+        controller: usize,
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        if controller != 0 {
+            return Err(CharacterDisplayError::BadDeviceId);
+        }
         self.bits.set_enable(value as u8);
         Ok(())
     }
@@ -177,23 +186,23 @@ mod tests {
     #[test]
     fn test_generic_pcf8574t_compatiple_lcd_types() {
         // not exhaustive for compatible displays (is_supported == true)
-        assert!(GenericPCF8574TConfig::<I2cMock>::is_supported(
+        assert!(GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd16x2
         ));
-        assert!(GenericPCF8574TConfig::<I2cMock>::is_supported(
+        assert!(GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd20x4
         ));
-        assert!(GenericPCF8574TConfig::<I2cMock>::is_supported(
+        assert!(GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd40x2
         ));
-        assert!(!GenericPCF8574TConfig::<I2cMock>::is_supported(
+        assert!(!GenericPCF8574TAdapter::<I2cMock>::is_supported(
             LcdDisplayType::Lcd40x4
         ));
     }
 
     #[test]
-    fn test_generic_pcf8574t_config() {
-        let mut config = GenericPCF8574TConfig::<I2cMock>::default();
+    fn test_generic_pcf8574t_bits() {
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
         config.set_rs(true);
         config.set_rw(false);
         assert!(config.set_enable(true, 0).is_ok());
@@ -202,13 +211,14 @@ mod tests {
 
         assert_eq!(config.bits(), 0b10101101);
         assert_eq!(
-            GenericPCF8574TConfig::<I2cMock>::default_i2c_address(),
+            GenericPCF8574TAdapter::<I2cMock>::default_i2c_address(),
             0x27
         );
 
         config.set_rs(false);
         config.set_rw(true);
-        assert!(config.set_enable(false, 1).is_ok());
+        assert!(!config.set_enable(false, 1).is_ok());
+        assert!(config.set_enable(false, 0).is_ok());
         config.set_backlight(false);
         config.set_data(0b0101);
 
@@ -216,8 +226,8 @@ mod tests {
     }
 
     #[test]
-    fn test_generic_pcf8574t_config_write_byte() {
-        let mut config = GenericPCF8574TConfig::<I2cMock>::default();
+    fn test_generic_pcf8574t_write_bits() {
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
         config.set_rs(true);
         config.set_rw(false);
         assert!(config.set_enable(true, 0).is_ok());
@@ -228,6 +238,36 @@ mod tests {
         let mut i2c = I2cMock::new(&expected_transactions);
 
         config.write_bits_to_gpio(&mut i2c, 0x27).unwrap();
+        i2c.done();
+    }
+
+    #[test]
+    fn test_generic_pcf8574t_write_byte() {
+        let expected_transactions = [
+            // wrtie byte 0xDE with RS = 1
+            // write high nibble
+            I2cTransaction::write(0x27, std::vec![0b11010101]), // enable = 1, rs = 1
+            I2cTransaction::write(0x27, std::vec![0b11010001]), // enable = 0, rs = 1
+            // write low nibble
+            I2cTransaction::write(0x27, std::vec![0b11100101]), // enable = 1, rs = 1
+            I2cTransaction::write(0x27, std::vec![0b11100001]), // enable = 0, rs = 1
+            // wrtie byte 0xAD with RS = 0
+            // write high nibble
+            I2cTransaction::write(0x27, std::vec![0b10100100]), // enable = 1, rs = 0
+            I2cTransaction::write(0x27, std::vec![0b10100000]), // enable = 0, rs = 0
+            // write low nibble
+            I2cTransaction::write(0x27, std::vec![0b11010100]), // enable = 1, rs = 0
+            I2cTransaction::write(0x27, std::vec![0b11010000]), // enable = 0, rs = 0
+        ];
+        let mut i2c = I2cMock::new(&expected_transactions);
+
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
+        assert!(config
+            .write_byte_to_controller(&mut i2c, 0x27, 0, true, 0xDE)
+            .is_ok());
+        assert!(config
+            .write_byte_to_controller(&mut i2c, 0x27, 0, false, 0xAD)
+            .is_ok());
         i2c.done();
     }
 
@@ -275,41 +315,18 @@ mod tests {
         ];
         let mut i2c = I2cMock::new(&expected_transactions);
 
-        let config = GenericPCF8574TConfig::<I2cMock>::default();
+        let config = GenericPCF8574TAdapter::<I2cMock>::default();
 
         let buffer = &mut [0u8; 2];
         assert!(config
-            .read_bytes_from_device(&mut i2c, 0x27, 0, false, buffer)
+            .read_bytes_from_controller(&mut i2c, 0x27, 0, false, buffer)
             .is_ok());
         assert_eq!(buffer, &[0xDE, 0xAD]);
         i2c.done();
     }
 
     #[test]
-    fn test_generic_pcf8574t_config_is_busy() {
-        let expected_transactions = [
-            // set up PCF8574T to read data
-            I2cTransaction::write(0x27, std::vec![0b11110010]),
-            // read high nibble
-            I2cTransaction::write(0x27, std::vec![0b11110110]),
-            I2cTransaction::read(0x27, std::vec![0b10100110]),
-            I2cTransaction::write(0x27, std::vec![0b11110010]),
-            // read low nibble
-            I2cTransaction::write(0x27, std::vec![0b11110110]),
-            I2cTransaction::write(0x27, std::vec![0b11110010]),
-        ];
-        let mut i2c = I2cMock::new(&expected_transactions);
-
-        let config = GenericPCF8574TConfig::<I2cMock>::default();
-
-        let is_busy = config.is_busy(&mut i2c, 0x27).unwrap();
-
-        assert_eq!(is_busy, true);
-        i2c.done();
-    }
-
-    #[test]
-    fn test_generic_pcf8574t_config_is_not_busy() {
+    fn test_generic_pcf8574t_is_not_busy() {
         let expected_transactions = [
             // set up PCF8574T to read data
             I2cTransaction::write(0x27, std::vec![0b11110010]),
@@ -323,11 +340,18 @@ mod tests {
         ];
         let mut i2c = I2cMock::new(&expected_transactions);
 
-        let config = GenericPCF8574TConfig::<I2cMock>::default();
+        let config = GenericPCF8574TAdapter::<I2cMock>::default();
 
         let is_busy = config.is_busy(&mut i2c, 0x27).unwrap();
 
         assert_eq!(is_busy, false);
         i2c.done();
+    }
+
+    #[test]
+    fn test_set_enable_controllor_out_of_range() {
+        let mut config = GenericPCF8574TAdapter::<I2cMock>::default();
+        assert!(config.set_enable(true, 1).is_err());
+        assert!(config.set_enable(true, 0).is_ok());
     }
 }

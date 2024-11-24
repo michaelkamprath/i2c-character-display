@@ -1,29 +1,31 @@
-//! This Rust `embedded-hal`-based library is a simple way to control a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
-//! compatible character display with an "I2C backpack" interface in an embedded, `no_std` environment. A number of I2C adapter interfaces
-//! are supported:
+//! This Rust `embedded-hal`-based library is a simple way to control a character display that has either a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
+//! or [AiP31068](https://support.newhavendisplay.com/hc/en-us/articles/4414486901783--AiP31068) contoller with an I2C interface
+//! in an embedded, `no_std` environment. A number of I2C interfaces are supported:
 //!
-//! - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C backpack that can be used with either I2C
-//!   or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface.
-//! - **PCF8574-based I2C adapter** - These adapters are ubiquitous on eBay and AliExpress and have no clear branding. Furthermore, some character
+//! - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C adapter for HD44780 character displays that can be used with either I2C
+//!   or SPI. It is available from Adafruit and other retailers. This library only supports the I2C interface of this adapter.
+//! - **PCF8574-based I2C adapter** - These adapters are ubiquitous on eBay and AliExpress and have no clear branding. Furthermore, some HD44780-based character
 //!   display makers, such as [Surenoo](https://www.surenoo.com), integrate a PCF8574T directly on the display board enabling I2C connections without a seperate adapter.
-//!   The most common pin wiring uses 4 data pins and 3 control pins. Most models have the display 4-bit data pins connected to P4-P7 of the PCF8574.
-//!   This library supports that configuration, though it would be straightforward to add support for other configurations.
+//!   The most common pin wiring uses 4 data pins and 3 control pins. Most models have the display's 4-bit mode data pins connected to P4-P7 of the PCF8574.
+//!   This library supports that configuration, though it would be straightforward to add support for other pin configurations.
+//! - **AiP31068** - This is a character display controller with a built-in I2C support. The command set is similar to the HD44780, but the controller
+//!   operates in 8-bit mode and is initialized differently.
 //!
 //! Key features include:
-//! - Convenient high-level API for controlling the display
+//! - Convenient high-level API for controlling many types of character display
 //! - Support for custom characters
-//! - Backlight control
+//! - Backlight control on hardwarware that supports it
 //! - `core::fmt::Write` implementation for easy use with the `write!` macro
 //! - Compatible with the `embedded-hal` traits v1.0 and later
 //! - Support for character displays that uses multiple HD44780 drivers, such as the 40x4 display
 //! - Optional support for the `defmt` and `ufmt` logging frameworks
-//! - Optional support for reading from the display on adapters that support it
+//! - Optional support for reading from the display on controllers and adapters that support it
 //!
 //! ## Usage
 //! Add this to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! i2c-character-display = { version = "0.1", features = ["defmt"] }
+//! i2c-character-display = { version = "0.4", features = ["defmt"] }
 //! ```
 //! The `features = ["defmt"]` line is optional and enables the `defmt` feature, which allows the library's errors to be used with the `defmt` logging
 //! framework. Another optional feature is `features = ["ufmt"]`, which enables the `ufmt` feature, allowing the `uwriteln!` and `uwrite!` macros to be used.
@@ -41,12 +43,14 @@
 //! // It is recommended that the `i2c` object be wrapped in an `embedded_hal_bus::i2c::CriticalSectionDevice` so that it can be shared between
 //! // multiple peripherals.
 //!
-//! // Adafruit backpack
+//! // Adafruit backpack for a single HD44780 controller
 //! let mut lcd = AdafruitLCDBackpack::new(i2c, LcdDisplayType::Lcd16x2, delay);
-//! // PCF8574T adapter
+//! // PCF8574T adapter for a single HD44780 controller
 //! let mut lcd = CharacterDisplayPCF8574T::new(i2c, LcdDisplayType::Lcd16x2, delay);
-//! // Character display with dual HD44780 drivers using a single PCF8574T I2C adapter
+//! // Character display with dual HD44780 controllers using a single PCF8574T I2C adapter
 //! let mut lcd = CharacterDisplayDualHD44780::new(i2c, LcdDisplayType::Lcd40x4, delay);
+//! // Character display with the AiP31068 controller
+//! let mut lcd = CharacterDisplayAIP31068::new(i2c, LcdDisplayType::Lcd16x2, delay);
 //! ```
 //! When creating the display object, you can choose the display type from the `LcdDisplayType` enum. The display type should match the physical
 //! display you are using. This display type configures the number of rows and columns, and the internal row offsets for the display.
@@ -81,9 +85,13 @@
 //! lcd.backlight(true)?.clear()?.home()?.print("Hello, world!")?;
 //! ```
 //! ### Reading from the display
-//! Some I2C adapters support reading data from the HD44780 controller. Dor the I2C adapters that support it, the `read_device_data` method can be used to read
+//! Some I2C adapters support reading data from the HD44780 controller. For the I2C adapters that support it, the `read_device_data` method can be used to read
 //! from either the CGRAM or DDRAM at the current cursor position. The `read_address_counter` method can be used to read the address counter from the HD44780 controller.
 //! In both cases, the specific meaning of the data depends on the prior commands sent to the display. See the HD44780 datasheet for more information.
+//!
+//! ### Backlight control
+//! All HD44780 controllers support backlight control. The `backlight` method can be used to turn the backlight on or off. The AiP31068 controller does not support
+//! backlight control, and calling the `backlight` method with a AiP31068 controller will return an error.
 //!
 //! ### Multiple HD44780 controller character displays
 //! Some character displays, such as the 40x4 display, use two HD44780 controllers to drive the display. This library supports these displays by
@@ -96,6 +104,23 @@
 use core::fmt::Display;
 
 use embedded_hal::{delay::DelayNs, i2c};
+
+/// HD44780 based character display using a generic PCF8574T I2C adapter.
+pub type CharacterDisplayPCF8574T<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, crate::driver::hd44780::GenericHD44780PCF8574T<I2C>>;
+
+/// HD44780 based character display using an Adafruit I2C/SPI LCD backpack adapter.
+pub type AdafruitLCDBackpack<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, crate::driver::hd44780::AdafruitLCDBackpack<I2C>>;
+
+/// Character display using dual HD44780 I2C drivers connected using a generic PCF8574T I2C adapter with a pinout that
+/// has two enable pins, one for each HD44780 driver. Typically used for 40x4 character displays.
+pub type CharacterDisplayDualHD44780<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, crate::driver::hd44780::DualHD44780PCF8574T<I2C>>;
+
+/// Character display using the AIP31068 controller with built-in I2C adapter.
+pub type CharacterDisplayAIP31068<I2C, DELAY> =
+    BaseCharacterDisplay<I2C, DELAY, crate::driver::aip31068::AIP31068<I2C>>;
 
 // commands
 const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
@@ -135,13 +160,13 @@ const LCD_FLAG_1LINE: u8 = 0x00; //  LCD 1 line mode
 const LCD_FLAG_5x10_DOTS: u8 = 0x04; //  10 pixel high font mode
 const LCD_FLAG_5x8_DOTS: u8 = 0x00; //  8 pixel high font mode
 
-mod adapter_config;
+mod driver;
 
 const MAX_DEVICE_COUNT: usize = 2;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 /// Errors that can occur when using the LCD backpack
-pub enum Error<I2C>
+pub enum CharacterDisplayError<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -153,57 +178,48 @@ where
     ColumnOutOfRange,
     /// Formatting error
     FormattingError(core::fmt::Error),
-    /// Dive Adapter Error
-    AdapterError(adapter_config::AdapterError<I2C>),
     /// The discplay type is not compatible with specific adapter.
     UnsupportedDisplayType,
+    /// The requested operation is not supported by the adapter or controller
+    UnsupportedOperation,
     /// Read operation is not supported by the adapter
     ReadNotSupported,
+    /// Internal error - bad device ID
+    BadDeviceId,
+    /// Internal error - buffer too small
+    BufferTooSmall,
 }
 
-impl<I2C> From<core::fmt::Error> for Error<I2C>
+impl<I2C> From<core::fmt::Error> for CharacterDisplayError<I2C>
 where
     I2C: i2c::I2c,
 {
     fn from(err: core::fmt::Error) -> Self {
-        Error::FormattingError(err)
+        CharacterDisplayError::FormattingError(err)
     }
 }
 
-impl<I2C> From<adapter_config::AdapterError<I2C>> for Error<I2C>
+impl<I2C> From<&CharacterDisplayError<I2C>> for &'static str
 where
     I2C: i2c::I2c,
 {
-    fn from(err: adapter_config::AdapterError<I2C>) -> Self {
+    fn from(err: &CharacterDisplayError<I2C>) -> Self {
         match err {
-            adapter_config::AdapterError::I2CError(i2c_err) => Error::I2cError(i2c_err),
-            _ => Error::AdapterError(err),
-        }
-    }
-}
-
-impl<I2C> From<&Error<I2C>> for &'static str
-where
-    I2C: i2c::I2c,
-{
-    fn from(err: &Error<I2C>) -> Self {
-        match err {
-            Error::I2cError(_) => "I2C error",
-            Error::RowOutOfRange => "Row out of range",
-            Error::ColumnOutOfRange => "Column out of range",
-            Error::FormattingError(_) => "Formatting error",
-            Error::AdapterError(e) => match e {
-                adapter_config::AdapterError::BadDeviceId => "Bad device ID",
-                adapter_config::AdapterError::I2CError(_) => "Adapter I2C error",
-            },
-            Error::UnsupportedDisplayType => "Unsupported display type",
-            Error::ReadNotSupported => "Read operation not supported",
+            CharacterDisplayError::I2cError(_) => "I2C error",
+            CharacterDisplayError::RowOutOfRange => "Row out of range",
+            CharacterDisplayError::ColumnOutOfRange => "Column out of range",
+            CharacterDisplayError::FormattingError(_) => "Formatting error",
+            CharacterDisplayError::UnsupportedDisplayType => "Unsupported display type",
+            CharacterDisplayError::UnsupportedOperation => "Unsupported operation",
+            CharacterDisplayError::ReadNotSupported => "Read operation not supported",
+            CharacterDisplayError::BadDeviceId => "Bad device ID",
+            CharacterDisplayError::BufferTooSmall => "Buffer too small",
         }
     }
 }
 
 #[cfg(feature = "defmt")]
-impl<I2C> defmt::Format for Error<I2C>
+impl<I2C> defmt::Format for CharacterDisplayError<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -214,7 +230,7 @@ where
 }
 
 #[cfg(feature = "ufmt")]
-impl<I2C> ufmt::uDisplay for Error<I2C>
+impl<I2C> ufmt::uDisplay for CharacterDisplayError<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -227,7 +243,7 @@ where
     }
 }
 
-impl<I2C> Display for Error<I2C>
+impl<I2C> Display for CharacterDisplayError<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -338,50 +354,32 @@ impl LcdDisplayType {
     }
 }
 
-pub struct BaseCharacterDisplay<I2C, DELAY, DEVICE>
+pub struct DeviceSetupConfig<I2C, DELAY>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
-    DEVICE: adapter_config::AdapterConfigTrait<I2C>,
 {
     lcd_type: LcdDisplayType,
     i2c: I2C,
     address: u8,
-    device: DEVICE,
     delay: DELAY,
-    display_function: [u8; MAX_DEVICE_COUNT],
-    display_control: [u8; MAX_DEVICE_COUNT],
-    display_mode: [u8; MAX_DEVICE_COUNT],
-    active_device: usize,
 }
 
-/// Character display using a generic PCF8574T I2C adapter.
-pub type CharacterDisplayPCF8574T<I2C, DELAY> = BaseCharacterDisplay<
-    I2C,
-    DELAY,
-    crate::adapter_config::generic_pcf8574t::GenericPCF8574TConfig<I2C>,
->;
-
-/// Character display using an Adafruit I2C/SPI LCD backpack.
-pub type AdafruitLCDBackpack<I2C, DELAY> = BaseCharacterDisplay<
-    I2C,
-    DELAY,
-    crate::adapter_config::adafruit_lcd_backpack::AdafruitLCDBackpackConfig<I2C>,
->;
-
-/// Character display using dual HD44780 I2C drivers connected using a generic PCF8574T I2C adapter with a pinout that
-/// has two enable pins, one for each HD44780 driver. Typically used for 40x4 character displays.
-pub type CharacterDisplayDualHD44780<I2C, DELAY> = BaseCharacterDisplay<
-    I2C,
-    DELAY,
-    crate::adapter_config::dual_hd44780::DualHD44780_PCF8574TConfig<I2C>,
->;
+pub struct BaseCharacterDisplay<I2C, DELAY, DEVICE>
+where
+    I2C: i2c::I2c,
+    DELAY: DelayNs,
+    DEVICE: driver::DriverTrait<I2C, DELAY>,
+{
+    config: DeviceSetupConfig<I2C, DELAY>,
+    device: DEVICE,
+}
 
 impl<I2C, DELAY, DEVICE> BaseCharacterDisplay<I2C, DELAY, DEVICE>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
-    DEVICE: adapter_config::AdapterConfigTrait<I2C>,
+    DEVICE: driver::DriverTrait<I2C, DELAY>,
 {
     /// Create a new character display object with the default I2C address for the adapter.
     pub fn new(i2c: I2C, lcd_type: LcdDisplayType, delay: DELAY) -> Self {
@@ -391,76 +389,29 @@ where
     /// Create a new character display object with a specific I2C address for the adapter.
     pub fn new_with_address(i2c: I2C, address: u8, lcd_type: LcdDisplayType, delay: DELAY) -> Self {
         Self {
-            lcd_type,
-            i2c,
-            address,
+            config: DeviceSetupConfig {
+                lcd_type,
+                i2c,
+                address,
+                delay,
+            },
             device: DEVICE::default(),
-            delay,
-            display_function: [0; MAX_DEVICE_COUNT],
-            display_control: [LCD_FLAG_DISPLAYON | LCD_FLAG_CURSOROFF | LCD_FLAG_BLINKOFF;
-                MAX_DEVICE_COUNT],
-            display_mode: [LCD_FLAG_ENTRYLEFT | LCD_FLAG_ENTRYSHIFTDECREMENT; MAX_DEVICE_COUNT],
-            active_device: 0,
         }
     }
 
     /// Initialize the display. This must be called before using the display.
-    pub fn init(&mut self) -> Result<(), Error<I2C>> {
-        if !DEVICE::is_supported(self.lcd_type) {
-            return Err(Error::UnsupportedDisplayType);
-        }
-
-        self.device
-            .init(&mut self.i2c, self.address)
-            .map_err(Error::I2cError)?;
-
-        for device in 0..self.device.device_count() {
-            if device >= MAX_DEVICE_COUNT {
-                return Err(Error::AdapterError(
-                    adapter_config::AdapterError::BadDeviceId,
-                ));
-            }
-
-            self.display_function[device] = LCD_FLAG_4BITMODE | LCD_FLAG_5x8_DOTS | LCD_FLAG_2LINE;
-
-            // Put LCD into 4 bit mode, device starts in 8 bit mode
-            self.device
-                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
-            self.delay.delay_ms(5);
-            self.device
-                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
-            self.delay.delay_ms(5);
-            self.device
-                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x03)?;
-            self.delay.delay_us(150);
-            self.device
-                .write_nibble_to_device(&mut self.i2c, self.address, device, false, 0x02)?;
-
-            self.send_command_to_device(
-                LCD_CMD_FUNCTIONSET | self.display_function[device],
-                device,
-            )?;
-            self.send_command_to_device(
-                LCD_CMD_DISPLAYCONTROL | self.display_control[device],
-                device,
-            )?;
-            self.send_command_to_device(LCD_CMD_ENTRYMODESET | self.display_mode[device], device)?;
-            self.clear_device(device)?.home_device(device)?;
-        }
-        // set up the display
-        self.backlight(true)?;
-        self.active_device = 0;
-        Ok(())
+    pub fn init(&mut self) -> Result<(), CharacterDisplayError<I2C>> {
+        self.device.init(&mut self.config)
     }
 
     /// returns a reference to the I2C peripheral. mostly needed for testing
     fn i2c(&mut self) -> &mut I2C {
-        &mut self.i2c
+        &mut self.config.i2c
     }
 
     /// returns the `LcdDisplayType` used to create the display
     pub fn display_type(&self) -> LcdDisplayType {
-        self.lcd_type
+        self.config.lcd_type
     }
 
     /// Supports the ability to read from the display.
@@ -468,68 +419,32 @@ where
         DEVICE::supports_reads()
     }
 
-    /// Sends a command datum to the display. Normally users do not need to call this directly.
-    /// For multiple devices, this sends the command to the currently active contoller device.
-    fn send_command(&mut self, command: u8) -> Result<(), Error<I2C>> {
-        self.send_command_to_device(command, self.active_device)
-    }
-
-    /// Sends a command datum to a specific HD44780 controller device. Normally users do not need to call this directly.
-    fn send_command_to_device(&mut self, command: u8, device: usize) -> Result<(), Error<I2C>> {
-        self.device
-            .write_byte_to_device(&mut self.i2c, self.address, device, false, command)
-            .map_err(Error::AdapterError)
-    }
-
-    /// Writes a data byte to the display. Normally users do not need to call this directly.
-    /// For multiple devices, this writes the data to the currently active contoller device.
-    fn write_data(&mut self, data: u8) -> Result<(), Error<I2C>> {
-        self.write_data_to_device(data, self.active_device)
-    }
-
-    /// Writes a data byte to a specific HD44780 controller device. Normally users do not need to call this directly.
-    fn write_data_to_device(&mut self, data: u8, device: usize) -> Result<(), Error<I2C>> {
-        self.device
-            .write_byte_to_device(&mut self.i2c, self.address, device, true, data)
-            .map_err(Error::AdapterError)
-    }
+    // /// Writes a data byte to the display. Normally users do not need to call this directly.
+    // /// For multiple devices, this writes the data to the currently active contoller device.
+    // fn write_data(&mut self, data: u8) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+    //     self.device.write_data(&mut self.config, data)?;
+    //     Ok(self)
+    // }
 
     /// Reads into the buffer data from the display device either the CGRAM or DDRAM at the current cursor position.
     /// For multiple devices, this reads from the currently active device as set by the cursor position.
     /// The amount of data read is determined by the length of the buffer.
     /// Not all adapters support reads from the device. This will return an error if the adapter
     /// does not support reads.
-    pub fn read_device_data(&mut self, buffer: &mut [u8]) -> Result<(), Error<I2C>> {
-        if !DEVICE::supports_reads() {
-            return Err(Error::ReadNotSupported);
-        }
-        self.device.read_bytes_from_device(
-            &mut self.i2c,
-            self.address,
-            self.active_device,
-            true,
-            buffer,
-        )?;
-        Ok(())
+    pub fn read_device_data(
+        &mut self,
+        buffer: &mut [u8],
+    ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.read_device_data(&mut self.config, buffer)?;
+
+        Ok(self)
     }
 
     /// Reads the address counter from the display device. The ready bit is masked off.
     /// Not all adapters support reads from the device. This will return an error if the adapter
     /// does not support reads.
-    pub fn read_address_counter(&mut self) -> Result<u8, Error<I2C>> {
-        if !DEVICE::supports_reads() {
-            return Err(Error::ReadNotSupported);
-        }
-        let mut buffer = [0];
-        self.device.read_bytes_from_device(
-            &mut self.i2c,
-            self.address,
-            self.active_device,
-            false,
-            &mut buffer,
-        )?;
-        // mask off the busy flag
-        Ok(buffer[0] & 0x7F)
+    pub fn read_address_counter(&mut self) -> Result<u8, CharacterDisplayError<I2C>> {
+        self.device.read_address_counter(&mut self.config)
     }
 
     //--------------------------------------------------------------------------------------------------
@@ -537,279 +452,120 @@ where
     //--------------------------------------------------------------------------------------------------
 
     /// Clear the display
-    /// For multiple devices, this clears all devices
-    pub fn clear(&mut self) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.clear_device(device)?;
-        }
-        Ok(self)
-    }
-
-    /// Clear the display on a specific HD44780 controller device
-    pub fn clear_device(&mut self, device: usize) -> Result<&mut Self, Error<I2C>> {
-        self.send_command_to_device(LCD_CMD_CLEARDISPLAY, device)?;
-        self.delay.delay_ms(2);
+    pub fn clear(&mut self) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.clear(&mut self.config)?;
         Ok(self)
     }
 
     /// Set the cursor to the home position.
-    /// For multiple devices, this sets the cursor to the home position on the 0 device
-    /// and sets the active HD44780 controller device to 0
-    pub fn home(&mut self) -> Result<&mut Self, Error<I2C>> {
-        self.active_device = 0;
-        self.home_device(0)
-    }
-
-    /// Set the cursor to the home position on a specific HD44780 controller device
-    pub fn home_device(&mut self, device: usize) -> Result<&mut Self, Error<I2C>> {
-        self.send_command_to_device(LCD_CMD_RETURNHOME, device)?;
-        self.delay.delay_ms(2);
+    pub fn home(&mut self) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.home(&mut self.config)?;
         Ok(self)
     }
 
     /// Set the cursor position at specified column and row. Columns and rows are zero-indexed.
-    /// For multiple devices, this sets the active device to the device containing ththe indicated row.
-    pub fn set_cursor(&mut self, col: u8, row: u8) -> Result<&mut Self, Error<I2C>> {
-        let (device, device_row) = self.device.row_to_device_row(row);
-        self.active_device = device;
-        self.set_cursor_device(col, device_row, self.active_device)
-    }
-
-    /// Set the cursor position at specified column and row on a specific HD44780 controller device.
-    /// Columns and rows are zero-indexed and in the frame of the specified device.
-    pub fn set_cursor_device(
+    pub fn set_cursor(
         &mut self,
         col: u8,
         row: u8,
-        device: usize,
-    ) -> Result<&mut Self, Error<I2C>> {
-        if row >= self.lcd_type.rows() {
-            return Err(Error::RowOutOfRange);
-        }
-        if col >= self.lcd_type.cols() {
-            return Err(Error::ColumnOutOfRange);
-        }
-
-        self.send_command_to_device(
-            LCD_CMD_SETDDRAMADDR | (col + self.lcd_type.row_offsets()[row as usize]),
-            device,
-        )?;
+    ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.set_cursor(&mut self.config, col, row)?;
         Ok(self)
     }
 
     /// Set the cursor visibility.
-    /// For multiple HD44780 controller devices, this sets the cursor visibility on the active device.
-    pub fn show_cursor(&mut self, show_cursor: bool) -> Result<&mut Self, Error<I2C>> {
-        self.show_cursor_device(show_cursor, self.active_device)
-    }
-
-    /// Set the cursor visibility on a specific HD44780 controller device.
-    pub fn show_cursor_device(
+    pub fn show_cursor(
         &mut self,
         show_cursor: bool,
-        device: usize,
-    ) -> Result<&mut Self, Error<I2C>> {
-        if show_cursor {
-            self.display_control[device] |= LCD_FLAG_CURSORON;
-        } else {
-            self.display_control[device] &= !LCD_FLAG_CURSORON;
-        }
-        self.send_command_to_device(
-            LCD_CMD_DISPLAYCONTROL | self.display_control[device],
-            device,
-        )?;
+    ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.show_cursor(&mut self.config, show_cursor)?;
         Ok(self)
     }
 
     /// Set the cursor blinking.
-    /// For multiple HD44780 controller devices, this sets the cursor blinking on the active device.
-    pub fn blink_cursor(&mut self, blink_cursor: bool) -> Result<&mut Self, Error<I2C>> {
-        self.blink_cursor_device(blink_cursor, self.active_device)
-    }
-
-    /// Set the cursor blinking on a specific HD44780 controller device.
-    pub fn blink_cursor_device(
+    pub fn blink_cursor(
         &mut self,
         blink_cursor: bool,
-        device: usize,
-    ) -> Result<&mut Self, Error<I2C>> {
-        if blink_cursor {
-            self.display_control[device] |= LCD_FLAG_BLINKON;
-        } else {
-            self.display_control[device] &= !LCD_FLAG_BLINKON;
-        }
-        self.send_command_to_device(
-            LCD_CMD_DISPLAYCONTROL | self.display_control[device],
-            device,
-        )?;
+    ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.blink_cursor(&mut self.config, blink_cursor)?;
         Ok(self)
     }
 
     /// Set the display visibility.
-    /// For multiple devices, this sets the display visibility on all devices.
-    pub fn show_display(&mut self, show_display: bool) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.show_display_device(show_display, device)?;
-        }
-        Ok(self)
-    }
-
-    pub fn show_display_device(
+    pub fn show_display(
         &mut self,
         show_display: bool,
-        device: usize,
-    ) -> Result<&mut Self, Error<I2C>> {
-        if show_display {
-            self.display_control[device] |= LCD_FLAG_DISPLAYON;
-        } else {
-            self.display_control[device] &= !LCD_FLAG_DISPLAYON;
-        }
-        self.send_command_to_device(
-            LCD_CMD_DISPLAYCONTROL | self.display_control[device],
-            device,
-        )?;
+    ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.show_display(&mut self.config, show_display)?;
         Ok(self)
     }
 
     /// Scroll the display to the left.
-    /// For multiple devices, this scrolls all devices to the left.
-    pub fn scroll_display_left(&mut self) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.scroll_display_left_device(device)?;
-        }
-        Ok(self)
-    }
-
-    pub fn scroll_display_left_device(&mut self, device: usize) -> Result<&mut Self, Error<I2C>> {
-        self.send_command_to_device(
-            LCD_CMD_CURSORSHIFT | LCD_FLAG_DISPLAYMOVE | LCD_FLAG_MOVELEFT,
-            device,
-        )?;
+    pub fn scroll_display_left(&mut self) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.scroll_left(&mut self.config)?;
         Ok(self)
     }
 
     /// Scroll the display to the right.
-    /// For multiple devices, this scrolls all devices to the right.
-    pub fn scroll_display_right(&mut self) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.scroll_display_right_device(device)?;
-        }
-        Ok(self)
-    }
-
-    pub fn scroll_display_right_device(&mut self, device: usize) -> Result<&mut Self, Error<I2C>> {
-        self.send_command_to_device(
-            LCD_CMD_CURSORSHIFT | LCD_FLAG_DISPLAYMOVE | LCD_FLAG_MOVERIGHT,
-            device,
-        )?;
+    pub fn scroll_display_right(&mut self) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.scroll_right(&mut self.config)?;
         Ok(self)
     }
 
     /// Set the text flow direction to left to right.
-    /// For multiple HD44780 controller devices, this sets the text flow direction to left to right on all devices.
-    pub fn left_to_right(&mut self) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.left_to_right_device(device)?;
-        }
-        Ok(self)
-    }
-
-    pub fn left_to_right_device(&mut self, device: usize) -> Result<&mut Self, Error<I2C>> {
-        self.display_mode[device] |= LCD_FLAG_ENTRYLEFT;
-        self.send_command_to_device(LCD_CMD_ENTRYMODESET | self.display_mode[device], device)?;
+    pub fn left_to_right(&mut self) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.left_to_right(&mut self.config)?;
         Ok(self)
     }
 
     /// Set the text flow direction to right to left.
-    /// For multiple HD44780 controller devices, this sets the text flow direction to right to left on all devices.
-    pub fn right_to_left(&mut self) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.right_to_left_device(device)?;
-        }
-        Ok(self)
-    }
-
-    pub fn right_to_left_device(&mut self, device: usize) -> Result<&mut Self, Error<I2C>> {
-        self.display_mode[device] &= !LCD_FLAG_ENTRYLEFT;
-        self.send_command_to_device(LCD_CMD_ENTRYMODESET | self.display_mode[device], device)?;
+    pub fn right_to_left(&mut self) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.right_to_left(&mut self.config)?;
         Ok(self)
     }
 
     /// Set the auto scroll mode.
-    /// For multiple devices, this sets the auto scroll mode on all devices.
-    pub fn autoscroll(&mut self, autoscroll: bool) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.autoscroll_device(autoscroll, device)?;
-        }
-        Ok(self)
-    }
-
-    pub fn autoscroll_device(
+    pub fn autoscroll(
         &mut self,
         autoscroll: bool,
-        device: usize,
-    ) -> Result<&mut Self, Error<I2C>> {
-        if autoscroll {
-            self.display_mode[device] |= LCD_FLAG_ENTRYSHIFTINCREMENT;
-        } else {
-            self.display_mode[device] &= !LCD_FLAG_ENTRYSHIFTINCREMENT;
-        }
-        self.send_command_to_device(LCD_CMD_ENTRYMODESET | self.display_mode[device], device)?;
+    ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.autoscroll(&mut self.config, autoscroll)?;
         Ok(self)
     }
 
     /// Create a new custom character.
-    /// For multiple devices, this creates the custom character on all devices.
-    pub fn create_char(&mut self, location: u8, charmap: [u8; 8]) -> Result<&mut Self, Error<I2C>> {
-        for device in 0..self.device.device_count() {
-            self.create_char_device(location, charmap, device)?;
-        }
-        Ok(self)
-    }
-
-    pub fn create_char_device(
+    pub fn create_char(
         &mut self,
         location: u8,
         charmap: [u8; 8],
-        device: usize,
-    ) -> Result<&mut Self, Error<I2C>> {
-        self.send_command_to_device(LCD_CMD_SETCGRAMADDR | ((location & 0x7) << 3), device)?;
-        for &charmap_byte in charmap.iter() {
-            self.write_data_to_device(charmap_byte, device)?;
-        }
+    ) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device
+            .create_char(&mut self.config, location, charmap)?;
         Ok(self)
     }
 
     /// Prints a string to the LCD at the current cursor position of the active device.
-    pub fn print(&mut self, text: &str) -> Result<&mut Self, Error<I2C>> {
-        self.print_device(text, self.active_device)
-    }
-
-    pub fn print_device(&mut self, text: &str, device: usize) -> Result<&mut Self, Error<I2C>> {
-        for c in text.chars() {
-            self.write_data_to_device(c as u8, device)?;
-        }
+    pub fn print(&mut self, text: &str) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.print(&mut self.config, text)?;
         Ok(self)
     }
 
-    /// Turn the backlight on or off
-    pub fn backlight(&mut self, on: bool) -> Result<&mut Self, Error<I2C>> {
-        self.device.set_backlight(on);
-        self.device.set_enable(false, self.active_device)?;
-        self.device
-            .write_bits_to_gpio(&mut self.i2c, self.address)?;
+    /// Turn the backlight on or off.
+    /// Note that the AIP31068 controller does not support backlight control.
+    pub fn backlight(&mut self, on: bool) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.device.backlight(&mut self.config, on)?;
         Ok(self)
     }
 }
 
-/// Implement the `core::fmt::Write` trait for the LCD backpack, allowing it to be used with the `write!` macro.
+/// Implement the `core::fmt::Write` trait, allowing it to be used with the `write!` macro.
 /// This is a convenience method for printing to the display. For multi-device, this will print to the active device as set by
-/// `set_cursor`. If you need to print to a specific device, use the `print` method.
-impl<I2C, DELAY, BITS> core::fmt::Write for BaseCharacterDisplay<I2C, DELAY, BITS>
+/// `set_cursor`.
+impl<I2C, DELAY, DEVICE> core::fmt::Write for BaseCharacterDisplay<I2C, DELAY, DEVICE>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
-    BITS: adapter_config::AdapterConfigTrait<I2C>,
+    DEVICE: driver::DriverTrait<I2C, DELAY>,
 {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
         if let Err(_e) = self.print(s) {
@@ -820,23 +576,23 @@ where
 }
 
 #[cfg(feature = "ufmt")]
-/// Implement the `ufmt::uWrite` trait for the LCD backpack, allowing it to be used with the `uwriteln!` and `uwrite!` macros.
+/// Implement the `ufmt::uWrite` trait, allowing it to be used with the `uwriteln!` and `uwrite!` macros.
 /// This is a convenience method for printing to the display. For multi-device, this will print to the active device as set by
-/// `set_cursor`. If you need to print to a specific device, use the `print` method.
-impl<I2C, DELAY, BITS> ufmt::uWrite for BaseCharacterDisplay<I2C, DELAY, BITS>
+/// `set_cursor`.
+impl<I2C, DELAY, DEVICE> ufmt::uWrite for BaseCharacterDisplay<I2C, DELAY, DEVICE>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
-    BITS: adapter_config::AdapterConfigTrait<I2C>,
+    DEVICE: driver::DriverTrait<I2C, DELAY>,
 {
-    fn write_str(&mut self, s: &str) -> Result<(), Error<I2C>> {
+    fn write_str(&mut self, s: &str) -> Result<(), CharacterDisplayError<I2C>> {
         if let Err(e) = self.print(s) {
             return Err(e);
         }
         Ok(())
     }
 
-    type Error = Error<I2C>;
+    type Error = CharacterDisplayError<I2C>;
 }
 
 #[cfg(test)]
@@ -964,6 +720,7 @@ mod lib_tests {
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let mut lcd = AdafruitLCDBackpack::new(i2c, LcdDisplayType::Lcd16x2, NoopDelay::new());
+
         let result = lcd.init();
         assert!(result.is_ok());
         assert!(lcd.display_type() == LcdDisplayType::Lcd16x2);

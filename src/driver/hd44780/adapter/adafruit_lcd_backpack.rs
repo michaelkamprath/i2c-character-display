@@ -2,9 +2,10 @@ use bitfield::bitfield;
 use core::marker::PhantomData;
 use embedded_hal::i2c;
 
-use super::{AdapterConfigTrait, AdapterError, LcdDisplayType};
+use crate::{CharacterDisplayError, LcdDisplayType};
 
-// Configuration for the MCP23008 based LCD backpack from Adafruit
+use super::HD44780AdapterTrait;
+
 bitfield! {
     pub struct AdafruitLCDBackpackBitField(u8);
     impl Debug;
@@ -15,12 +16,20 @@ bitfield! {
     pub data, set_data: 6, 3;
 }
 
-pub struct AdafruitLCDBackpackConfig<I2C> {
+impl Clone for AdafruitLCDBackpackBitField {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+/// AdaFruit branded HD44780 I2C adapter based on the MCP23008 I2C GPIO expander
+#[derive(Clone)]
+pub struct AdafruitLCDBackpackAdapter<I2C> {
     bits: AdafruitLCDBackpackBitField,
     _marker: PhantomData<I2C>,
 }
 
-impl<I2C> Default for AdafruitLCDBackpackConfig<I2C>
+impl<I2C> Default for AdafruitLCDBackpackAdapter<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -31,33 +40,45 @@ where
         }
     }
 }
-/// Configuration for the MCP23008 based LCD backpack from Adafruit
-impl<I2C> AdapterConfigTrait<I2C> for AdafruitLCDBackpackConfig<I2C>
+
+impl<I2C> HD44780AdapterTrait<I2C> for AdafruitLCDBackpackAdapter<I2C>
 where
     I2C: i2c::I2c,
 {
-    fn bits(&self) -> u8 {
-        self.bits.0
-    }
-
     fn default_i2c_address() -> u8 {
         0x20
     }
 
-    fn supports_reads() -> bool {
-        false
+    fn is_supported(display_type: LcdDisplayType) -> bool {
+        display_type != LcdDisplayType::Lcd40x4
+    }
+
+    fn init(&self, i2c: &mut I2C, i2c_address: u8) -> Result<(), I2C::Error> {
+        // Set the MCP23008 IODIR register to output
+        i2c.write(i2c_address, &[0x00, 0x00])?;
+        Ok(())
+    }
+
+    fn bits(&self) -> u8 {
+        self.bits.0
     }
 
     fn set_rs(&mut self, value: bool) {
         self.bits.set_rs(value as u8);
     }
 
-    /// Adafruit LCD Backpack doesn't use RW
     fn set_rw(&mut self, _value: bool) {
-        // Not used
+        // adafruit backpack doesn't use RW
     }
 
-    fn set_enable(&mut self, value: bool, _device: usize) -> Result<(), AdapterError<I2C>> {
+    fn set_enable(
+        &mut self,
+        value: bool,
+        controller: usize,
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        if controller != 0 {
+            return Err(CharacterDisplayError::BadDeviceId);
+        }
         self.bits.set_enable(value as u8);
         Ok(())
     }
@@ -70,22 +91,16 @@ where
         self.bits.set_data(value);
     }
 
-    fn init(&self, i2c: &mut I2C, i2c_address: u8) -> Result<(), I2C::Error> {
-        // Set the MCP23008 IODIR register to output
-        i2c.write(i2c_address, &[0x00, 0x00])?;
-        Ok(())
-    }
-
-    fn write_bits_to_gpio(&self, i2c: &mut I2C, i2c_address: u8) -> Result<(), AdapterError<I2C>> {
+    fn write_bits_to_gpio(
+        &self,
+        i2c: &mut I2C,
+        i2c_address: u8,
+    ) -> Result<(), CharacterDisplayError<I2C>> {
         // first byte is GPIO register address
-        let data = [0x09, self.bits.0];
+        let data = [0x09, self.bits()];
         i2c.write(i2c_address, &data)
-            .map_err(AdapterError::I2CError)?;
+            .map_err(CharacterDisplayError::I2cError)?;
         Ok(())
-    }
-
-    fn is_supported(display_type: LcdDisplayType) -> bool {
-        display_type != LcdDisplayType::Lcd40x4
     }
 }
 
@@ -96,17 +111,18 @@ mod tests {
     use embedded_hal_mock::eh1::i2c::{Mock as I2cMock, Transaction as I2cTransaction};
 
     #[test]
-    fn test_adafruit_lcd_backpack_config() {
-        let mut config = AdafruitLCDBackpackConfig::<I2cMock>::default();
+    fn test_adafruit_lcd_backpack_adapter() {
+        let mut config = AdafruitLCDBackpackAdapter::<I2cMock>::default();
         config.set_rs(true);
-        assert!(config.set_enable(true, 2).is_ok());
+        assert!(config.set_enable(true, 2).is_err());
+        assert!(config.set_enable(true, 0).is_ok());
         config.set_backlight(true);
         config.set_data(0b1010);
         // adafruit backpack doesn't use RW
 
         assert_eq!(config.bits(), 0b11010110);
         assert_eq!(
-            AdafruitLCDBackpackConfig::<I2cMock>::default_i2c_address(),
+            AdafruitLCDBackpackAdapter::<I2cMock>::default_i2c_address(),
             0x20
         );
 
@@ -120,9 +136,9 @@ mod tests {
 
     #[test]
     fn test_adafruit_lcd_backpack_config_write_bits_to_gpio() {
-        let mut config = AdafruitLCDBackpackConfig::<I2cMock>::default();
+        let mut config = AdafruitLCDBackpackAdapter::<I2cMock>::default();
         config.set_rs(true);
-        assert!(config.set_enable(true, 1).is_ok());
+        assert!(config.set_enable(true, 0).is_ok());
         config.set_backlight(true);
         config.set_data(0b1010);
 
@@ -135,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_adafruit_init() {
-        let config = AdafruitLCDBackpackConfig::<I2cMock>::default();
+        let config = AdafruitLCDBackpackAdapter::<I2cMock>::default();
 
         let expected_transactions = [I2cTransaction::write(0x20, std::vec![0x00, 0x00])];
         let mut i2c = I2cMock::new(&expected_transactions);

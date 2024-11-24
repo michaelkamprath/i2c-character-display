@@ -2,8 +2,11 @@ use bitfield::bitfield;
 use core::marker::PhantomData;
 use embedded_hal::i2c;
 
-use super::{AdapterConfigTrait, AdapterError, LcdDisplayType};
+use crate::{CharacterDisplayError, LcdDisplayType};
 
+use super::HD44780AdapterTrait;
+
+// Configuration for the PCF8574T based 4-bit LCD interface soldto dual HD44780 controllers
 bitfield! {
     pub struct DualHD44780_PCF8574TBitField(u8);
     impl Debug;
@@ -21,15 +24,15 @@ impl Clone for DualHD44780_PCF8574TBitField {
     }
 }
 
-pub struct DualHD44780_PCF8574TConfig<I2C> {
+/// Adapter based on the PCF8574T I2C GPIO expander interfacing with two HD44780 LCD controller
+/// via a 4-bit interface. The two controllers enable LCD screen sizes lik 40x4.
+#[derive(Clone)]
+pub struct DualHD44780_PCF8574TAdapter<I2C> {
     bits: DualHD44780_PCF8574TBitField,
     _marker: PhantomData<I2C>,
 }
 
-impl<I2C> Default for DualHD44780_PCF8574TConfig<I2C>
-where
-    I2C: i2c::I2c,
-{
+impl<I2C> Default for DualHD44780_PCF8574TAdapter<I2C> {
     fn default() -> Self {
         Self {
             bits: DualHD44780_PCF8574TBitField(0),
@@ -38,7 +41,7 @@ where
     }
 }
 
-impl<I2C> AdapterConfigTrait<I2C> for DualHD44780_PCF8574TConfig<I2C>
+impl<I2C> HD44780AdapterTrait<I2C> for DualHD44780_PCF8574TAdapter<I2C>
 where
     I2C: i2c::I2c,
 {
@@ -54,24 +57,27 @@ where
         false
     }
 
+    fn set_enable(
+        &mut self,
+        value: bool,
+        controller: usize,
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        if controller == 0 {
+            self.bits.set_enable1(value as u8);
+        } else if controller == 1 {
+            self.bits.set_enable2(value as u8);
+        } else {
+            return Err(CharacterDisplayError::BadDeviceId);
+        }
+        Ok(())
+    }
+
     fn set_rs(&mut self, value: bool) {
         self.bits.set_rs(value as u8);
     }
 
-    /// Dual HD44780 displays have two enable pins and do not use the RW pin
     fn set_rw(&mut self, _value: bool) {
         // does nothing
-    }
-
-    fn set_enable(&mut self, value: bool, device: usize) -> Result<(), AdapterError<I2C>> {
-        if device == 0 {
-            self.bits.set_enable1(value as u8);
-        } else if device == 1 {
-            self.bits.set_enable2(value as u8);
-        } else {
-            return Err(AdapterError::BadDeviceId);
-        }
-        Ok(())
     }
 
     fn set_backlight(&mut self, value: bool) {
@@ -82,20 +88,20 @@ where
         self.bits.set_data(value);
     }
 
-    fn device_count(&self) -> usize {
+    fn is_supported(display_type: LcdDisplayType) -> bool {
+        display_type == LcdDisplayType::Lcd40x4
+    }
+
+    fn controller_count(&self) -> usize {
         2
     }
 
-    fn row_to_device_row(&self, row: u8) -> (usize, u8) {
+    fn row_to_controller_row(&self, row: u8) -> (usize, u8) {
         if row < 2 {
             (0, row)
         } else {
             (1, row - 2)
         }
-    }
-
-    fn is_supported(_display_type: LcdDisplayType) -> bool {
-        true
     }
 }
 
@@ -107,15 +113,24 @@ mod tests {
 
     #[test]
     fn test_bad_device_id() {
-        let mut config = DualHD44780_PCF8574TConfig::<I2cMock>::default();
+        let mut config = DualHD44780_PCF8574TAdapter::<I2cMock>::default();
         assert!(config.set_enable(true, 2).is_err());
+        assert!(config.bits() == 0);
+        assert!(config.set_enable(true, 0).is_ok());
+        assert!(config.bits() & 0b0000_0100 != 0);
+        assert!(config.set_enable(false, 0).is_ok());
+        assert!(config.bits() == 0);
+        assert!(config.set_enable(true, 1).is_ok());
+        assert!(config.bits() & 0b0000_0010 != 0);
+        assert!(config.set_enable(false, 1).is_ok());
+        assert!(config.bits() == 0);
     }
 
     #[test]
-    fn test_dual_hd44780_config() {
-        let mut config = DualHD44780_PCF8574TConfig::<I2cMock>::default();
+    fn test_dual_hd44780_adapter() {
+        let mut config = DualHD44780_PCF8574TAdapter::<I2cMock>::default();
         config.set_rs(true);
-        config.set_rw(true);
+        config.set_rw(false);
         assert!(config.set_enable(true, 0).is_ok());
         assert!(config.set_enable(false, 1).is_ok());
         config.set_backlight(true);
@@ -123,12 +138,12 @@ mod tests {
 
         assert_eq!(config.bits(), 0b10101101);
         assert_eq!(
-            DualHD44780_PCF8574TConfig::<I2cMock>::default_i2c_address(),
+            DualHD44780_PCF8574TAdapter::<I2cMock>::default_i2c_address(),
             0x27
         );
 
         config.set_rs(false);
-        config.set_rw(true);
+        config.set_rw(false);
         assert!(config.set_enable(false, 0).is_ok());
         assert!(config.set_enable(true, 1).is_ok());
         config.set_backlight(false);
@@ -138,8 +153,8 @@ mod tests {
     }
 
     #[test]
-    fn test_dual_hd44780_config_write_bits_to_gpio() {
-        let mut config = DualHD44780_PCF8574TConfig::<I2cMock>::default();
+    fn test_dual_hd44780_adapter_write_bits_to_gpio() {
+        let mut config = DualHD44780_PCF8574TAdapter::<I2cMock>::default();
         config.set_rs(true);
         config.set_rw(false);
         assert!(config.set_enable(false, 0).is_ok());
@@ -152,5 +167,14 @@ mod tests {
 
         config.write_bits_to_gpio(&mut i2c, 0x27).unwrap();
         i2c.done();
+    }
+
+    #[test]
+    fn test_row_to_controller_row() {
+        let config = DualHD44780_PCF8574TAdapter::<I2cMock>::default();
+        assert_eq!(config.row_to_controller_row(0), (0, 0));
+        assert_eq!(config.row_to_controller_row(1), (0, 1));
+        assert_eq!(config.row_to_controller_row(2), (1, 0));
+        assert_eq!(config.row_to_controller_row(3), (1, 1));
     }
 }
