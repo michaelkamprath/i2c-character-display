@@ -235,14 +235,32 @@ where
         &mut self,
         device: &mut DeviceSetupConfig<I2C, DELAY>,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        todo!()
+        // TODO revisit this function's logic
+        self.display_mode |= LCD_FLAG_ENTRYLEFT;
+        self.write_bytes(
+            device,
+            false,
+            &[LCD_CMD_ENTRYMODESET | self.display_mode],
+        )?;
+        // wait for command to complete
+        device.delay.delay_us(39);
+        Ok(())
     }
 
     fn right_to_left(
         &mut self,
         device: &mut DeviceSetupConfig<I2C, DELAY>,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        todo!()
+        // TODO revisit this function's logic
+        self.display_mode |= LCD_FLAG_ENTRYRIGHT;
+        self.write_bytes(
+            device,
+            false,
+            &[LCD_CMD_ENTRYMODESET | self.display_mode],
+        )?;
+        // wait for command to complete
+        device.delay.delay_us(39);
+        Ok(())
     }
 
     fn autoscroll(
@@ -281,7 +299,6 @@ where
         _device: &mut DeviceSetupConfig<I2C, DELAY>,
         _on: bool,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-
         Err(CharacterDisplayError::UnsupportedOperation)
     }
 
@@ -298,6 +315,24 @@ where
         Ok(())
     }
 
+    /// Read the device data into the buffer.
+    /// This function is not supported by the AIP31068 driver.
+    fn read_device_data(
+        &self,
+        _device: &mut DeviceSetupConfig<I2C, DELAY>,
+        _buffer: &mut [u8],
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        Err(CharacterDisplayError::UnsupportedOperation)
+    }
+
+    /// Read the address counter.
+    /// This function is not supported by the AIP31068 driver.
+    fn read_address_counter(
+        &mut self,
+        _device: &mut DeviceSetupConfig<I2C, DELAY>,
+    ) -> Result<u8, CharacterDisplayError<I2C>> {
+        Err(CharacterDisplayError::UnsupportedOperation)
+    }
 }
 
 impl<I2C> AIP31068<I2C>
@@ -331,7 +366,7 @@ where
         self.buffer[idx] = control_byte | Self::CONTROL_LAST_BYTE;
         idx += 1;
         for byte in &data[..data.len()] {
-            if idx + 2 > MAX_BUFFER_SIZE {
+            if idx > MAX_BUFFER_SIZE {
                 return Err(CharacterDisplayError::BufferTooSmall);
             }
             self.buffer[idx] = *byte;
