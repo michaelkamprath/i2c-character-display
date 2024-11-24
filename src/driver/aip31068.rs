@@ -425,4 +425,96 @@ mod lib_tests {
         driver.write_bytes(&mut device, false, &[0xAB]).unwrap();
         device.i2c.done();
     }
+
+    #[test]
+    fn tesst_clear() {
+        let i2c_address = 0x3e;
+        let expected_i2c_transactions = std::vec![
+            I2cTransaction::write(i2c_address, std::vec![
+                0b0000_0000,
+                0x01,
+            ]),
+        ];
+
+        let i2c = I2cMock::new(&expected_i2c_transactions);
+        let mut driver = AIP31068::default();
+        let mut device = DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        };
+
+        assert!(driver.clear(&mut device).is_ok());
+        device.i2c.done();
+    }
+
+    #[test]
+    fn test_print() {
+        let i2c_address = 0x3e;
+        let expected_i2c_transactions = std::vec![
+            I2cTransaction::write(i2c_address, std::vec![
+                0b0100_0000,
+                0x48,
+                0x65,
+                0x6c,
+                0x6c,
+                0x6f,
+                0x20,
+                0x57,
+                0x6f,
+                0x72,
+                0x6c,
+                0x64,
+            ]),
+        ];
+
+        let i2c = I2cMock::new(&expected_i2c_transactions);
+        let mut driver = AIP31068::default();
+        let mut device = DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        };
+
+        assert!(driver.print(&mut device, "Hello World").is_ok());
+        device.i2c.done();
+    }
+
+    #[test]
+    fn test_create_char() {
+        let i2c_address = 0x3e;
+        let expected_i2c_transactions = std::vec![
+            // send set CGRAM address command for location 2
+            I2cTransaction::write(i2c_address, std::vec![
+                0b0000_0000,    // control byte
+                0x40 | (2 << 3),
+            ]),
+            // send the character data
+            I2cTransaction::write(i2c_address, std::vec![
+                0b0100_0000,    // control byte
+                0b11011,
+                0b10001,
+                0b11011,
+                0b00000,
+                0b00000,
+                0b00100,
+                0b01110,
+                0b10001,
+            ]),
+        ];
+        let i2c = I2cMock::new(&expected_i2c_transactions);
+        let mut driver = AIP31068::default();
+        let mut device = DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        };
+
+        assert!(driver.create_char(&mut device, 2, [0b11011, 0b10001, 0b11011, 0b00000, 0b00000, 0b00100, 0b01110, 0b10001]).is_ok());
+        device.i2c.done();
+    }
+
 }
