@@ -3,7 +3,7 @@
 <!-- cargo-sync-readme start -->
 
 This Rust `embedded-hal`-based library is a simple way to control a character display that has either a [HD44780](https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller)
-or [AiP31068](https://support.newhavendisplay.com/hc/en-us/articles/4414486901783--AiP31068) contoller with an I2C interface
+or [AiP31068](https://support.newhavendisplay.com/hc/en-us/articles/4414486901783--AiP31068) controller with an I2C interface
 in an embedded, `no_std` environment. A number of I2C interfaces are supported:
 
 - **[Adafruit I2C/SPI LCD Backpack](https://www.adafruit.com/product/292)** - This is a simple I2C adapter for HD44780 character displays that can be used with either I2C
@@ -101,7 +101,7 @@ backlight control, and calling the `backlight` method with a AiP31068 controller
 Some character displays, such as the 40x4 display, use two HD44780 controllers to drive the display. This library supports these displays by
 treating them as one logical display with multiple HD44780 controllers. The `CharacterDisplayDualHD44780` type is used to control these displays.
 Use the various methods to control the display as you would with a single HD44780 controller display. The `set_cursor` method sets the active HD44780
-conmtroller device based on the row number you select.
+controller device based on the row number you select.
 
 
 <!-- cargo-sync-readme end -->
