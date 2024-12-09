@@ -9,7 +9,7 @@
 //!   The most common pin wiring uses 4 data pins and 3 control pins. Most models have the display's 4-bit mode data pins connected to P4-P7 of the PCF8574.
 //!   This library supports that configuration, though it would be straightforward to add support for other pin configurations.
 //! - **AiP31068** - This is a character display controller with a built-in I2C support. The command set is similar to the HD44780, but the controller
-//!   operates in 8-bit mode and is initialized differently.
+//!   operates in 8-bit mode and is initialized differently.  Examples of displays that use this controller include the [Surenoo SLC1602O](https://www.surenoo.com/products/8109143).
 //!
 //! Key features include:
 //! - Convenient high-level API for controlling many types of character display
