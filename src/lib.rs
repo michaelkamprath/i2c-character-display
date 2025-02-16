@@ -110,50 +110,48 @@ use core::{fmt::Display, marker::PhantomData};
 use embedded_hal::{delay::DelayNs, i2c};
 
 /// HD44780 based character display using a generic PCF8574T I2C adapter.
-pub type CharacterDisplayPCF8574T<I2C, DELAY> =
-    BaseCharacterDisplay<
-        I2C,
-        DELAY,
-        crate::driver::hd44780::adapter::generic_pcf8574t::GenericPCF8574TAdapter<I2C, DELAY>,
-        crate::driver::hd44780::GenericHD44780PCF8574T<I2C, DELAY>,
-    >;
+pub type CharacterDisplayPCF8574T<I2C, DELAY> = BaseCharacterDisplay<
+    I2C,
+    DELAY,
+    crate::driver::hd44780::adapter::generic_pcf8574t::GenericPCF8574TAdapter<I2C, DELAY>,
+    crate::driver::hd44780::GenericHD44780PCF8574T<I2C, DELAY>,
+>;
 
 /// HD44780 based character display using an Adafruit I2C/SPI LCD backpack adapter.
-pub type AdafruitLCDBackpack<I2C, DELAY> =
-    BaseCharacterDisplay<
-        I2C,
-        DELAY,
-        crate::driver::hd44780::adapter::adafruit_lcd_backpack::AdafruitLCDBackpackAdapter<I2C, DELAY>,
-        crate::driver::hd44780::AdafruitLCDBackpack<I2C, DELAY>,
-    >;
+pub type AdafruitLCDBackpack<I2C, DELAY> = BaseCharacterDisplay<
+    I2C,
+    DELAY,
+    crate::driver::hd44780::adapter::adafruit_lcd_backpack::AdafruitLCDBackpackAdapter<I2C, DELAY>,
+    crate::driver::hd44780::AdafruitLCDBackpack<I2C, DELAY>,
+>;
 
 /// Character display using dual HD44780 I2C drivers connected using a generic PCF8574T I2C adapter with a pinout that
 /// has two enable pins, one for each HD44780 driver. Typically used for 40x4 character displays.
-pub type CharacterDisplayDualHD44780<I2C, DELAY> =
-    BaseCharacterDisplay<
+pub type CharacterDisplayDualHD44780<I2C, DELAY> = BaseCharacterDisplay<
+    I2C,
+    DELAY,
+    crate::driver::hd44780::adapter::dual_controller_pcf8574t::DualHD44780_PCF8574TAdapter<
         I2C,
         DELAY,
-        crate::driver::hd44780::adapter::dual_controller_pcf8574t::DualHD44780_PCF8574TAdapter<I2C, DELAY>,
-        crate::driver::hd44780::DualHD44780PCF8574T<I2C, DELAY>,
-    >;
+    >,
+    crate::driver::hd44780::DualHD44780PCF8574T<I2C, DELAY>,
+>;
 
 /// Character display using the AIP31068 controller with built-in I2C adapter.
-pub type CharacterDisplayAIP31068<I2C, DELAY> =
-    BaseCharacterDisplay<
-        I2C,
-        DELAY,
-        crate::driver::aip31068::AIP31068<I2C, DELAY>,
-        crate::driver::standard::StandardCharacterDisplayHandler,
-    >;
+pub type CharacterDisplayAIP31068<I2C, DELAY> = BaseCharacterDisplay<
+    I2C,
+    DELAY,
+    crate::driver::aip31068::AIP31068<I2C, DELAY>,
+    crate::driver::standard::StandardCharacterDisplayHandler,
+>;
 
 /// Character display using the ST7032i controller with built-in I2C adapter.
-pub type CharacterDisplayST7032i<I2C, DELAY> =
-    BaseCharacterDisplay<
-        I2C,
-        DELAY,
-        crate::driver::st7032i::ST7032i<I2C, DELAY>,
-        crate::driver::st7032i::ST7032iDisplayActions<I2C, DELAY>,
-    >;
+pub type CharacterDisplayST7032i<I2C, DELAY> = BaseCharacterDisplay<
+    I2C,
+    DELAY,
+    crate::driver::st7032i::ST7032i<I2C, DELAY>,
+    crate::driver::st7032i::ST7032iDisplayActions<I2C, DELAY>,
+>;
 
 // commands
 const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
@@ -610,7 +608,8 @@ where
 /// Implement the `core::fmt::Write` trait, allowing it to be used with the `write!` macro.
 /// This is a convenience method for printing to the display. For multi-device, this will print to the active device as set by
 /// `set_cursor`.
-impl<I2C, DELAY, DEVICE, ACTIONS> core::fmt::Write for BaseCharacterDisplay<I2C, DELAY, DEVICE, ACTIONS>
+impl<I2C, DELAY, DEVICE, ACTIONS> core::fmt::Write
+    for BaseCharacterDisplay<I2C, DELAY, DEVICE, ACTIONS>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,

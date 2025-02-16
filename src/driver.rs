@@ -1,5 +1,5 @@
-pub mod hd44780;
 pub mod aip31068;
+pub mod hd44780;
 pub mod st7032i;
 pub mod standard;
 
@@ -37,9 +37,7 @@ where
     /// initializes the device hardware. On `Ok`, returns the initial configuration
     /// of the device. The configuration is a tuple of three bytes:
     /// (display_function, display_control, display_mode)
-    fn init(
-        &mut self,
-    ) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>>;
+    fn init(&mut self) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>>;
 
     fn write_bytes(
         &mut self,
@@ -68,16 +66,10 @@ where
     ) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Clear the display
-    fn clear(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>>;
+    fn clear(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Set the cursor to the home position.
-    fn home(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>>;
+    fn home(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Set the cursor position at specified column and row. Columns and rows are zero-indexed.
     fn set_cursor(
@@ -109,28 +101,16 @@ where
     ) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Scroll display left.
-    fn scroll_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>>;
+    fn scroll_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Scroll display right.
-    fn scroll_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>>;
+    fn scroll_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Set the text flow direction to left to right.
-    fn left_to_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>>;
+    fn left_to_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Set the text flow direction to right to left.
-    fn right_to_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>>;
+    fn right_to_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Set the auto scroll mode.
     fn autoscroll(
@@ -140,11 +120,7 @@ where
     ) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Prints a string to the LCD at the current cursor position of the active device.
-    fn print(
-        &mut self,
-        device: &mut DEVICE,
-        text: &str,
-    ) -> Result<(), CharacterDisplayError<I2C>>;
+    fn print(&mut self, device: &mut DEVICE, text: &str) -> Result<(), CharacterDisplayError<I2C>>;
 
     /// Sets the backlight on or off
     fn backlight(

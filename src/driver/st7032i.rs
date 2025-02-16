@@ -1,23 +1,18 @@
-
+use crate::driver::{
+    standard::{
+        LCD_FLAG_5x8_DOTS, LCD_CMD_CLEARDISPLAY, LCD_CMD_DISPLAYCONTROL, LCD_CMD_ENTRYMODESET,
+        LCD_CMD_FUNCTIONSET, LCD_FLAG_2LINE, LCD_FLAG_8BITMODE, LCD_FLAG_BLINKOFF,
+        LCD_FLAG_CURSOROFF, LCD_FLAG_DISPLAYON, LCD_FLAG_ENTRYLEFT, LCD_FLAG_ENTRYSHIFTDECREMENT,
+    },
+    CharacterDisplayError, DeviceHardwareTrait, DeviceSetupConfig, LcdDisplayType,
+};
 use embedded_hal::{delay::DelayNs, i2c};
-
-use crate::{
-    driver::DeviceHardwareTrait,
-    CharacterDisplayError, DeviceSetupConfig, LcdDisplayType,
-};
-
-use crate::driver::standard::{
-    LCD_FLAG_8BITMODE, LCD_FLAG_2LINE, LCD_FLAG_5x8_DOTS, LCD_CMD_FUNCTIONSET,
-    LCD_FLAG_DISPLAYON, LCD_FLAG_CURSOROFF, LCD_FLAG_BLINKOFF, LCD_CMD_DISPLAYCONTROL,
-    LCD_CMD_CLEARDISPLAY,
-    LCD_FLAG_ENTRYLEFT, LCD_FLAG_ENTRYSHIFTDECREMENT, LCD_CMD_ENTRYMODESET,
-};
 
 use super::standard::StandardCharacterDisplayHandler;
 use super::DisplayActionsTrait;
 
-const CONTROL_NOT_LAST_BYTE: u8 = 0b1000_0000;  // Another control byte will follow the next data byte.
-const CONTROL_LAST_BYTE: u8 = 0b0000_0000;      // Last control byte. Only a stream of data bytes will follow.
+const CONTROL_NOT_LAST_BYTE: u8 = 0b1000_0000; // Another control byte will follow the next data byte.
+const CONTROL_LAST_BYTE: u8 = 0b0000_0000; // Last control byte. Only a stream of data bytes will follow.
 const CONTROL_RS_DATA: u8 = 0b0100_0000;
 const CONTROL_RS_COMMAND: u8 = 0b0000_0000;
 
@@ -26,7 +21,7 @@ const LCD_FLAG_INSTRUCTION_NORMAL: u8 = 0x00;
 const LCD_CMD_SET_CONTRAST_LOW: u8 = 0x70;
 const LCD_CMD_SET_PWR_ICON_CONTRAST_HI: u8 = 0x50;
 
-const MAX_BUFFER_SIZE: usize = 82;      // 80 bytes of data + 2 control bytes.
+const MAX_BUFFER_SIZE: usize = 82; // 80 bytes of data + 2 control bytes.
 
 /// AIP31068 device driver implementation
 pub struct ST7032i<I2C, DELAY>
@@ -34,10 +29,9 @@ where
     I2C: i2c::I2c,
     DELAY: DelayNs,
 {
-    buffer: [u8; MAX_BUFFER_SIZE],  // buffer for I2C data
+    buffer: [u8; MAX_BUFFER_SIZE], // buffer for I2C data
     config: DeviceSetupConfig<I2C, DELAY>,
 }
-
 
 impl<I2C, DELAY> DeviceHardwareTrait<I2C, DELAY> for ST7032i<I2C, DELAY>
 where
@@ -75,19 +69,21 @@ where
         &mut self.config.i2c
     }
 
-    fn init(
-        &mut self,
-    ) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
+    fn init(&mut self) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
         // wait 40 ms for power on
         self.config.delay.delay_ms(40);
 
         // send function set command
-        let display_function: u8 =  LCD_FLAG_8BITMODE | LCD_FLAG_2LINE | LCD_FLAG_5x8_DOTS | LCD_FLAG_INSTRUCTION_NORMAL;
+        let display_function: u8 =
+            LCD_FLAG_8BITMODE | LCD_FLAG_2LINE | LCD_FLAG_5x8_DOTS | LCD_FLAG_INSTRUCTION_NORMAL;
         self.write_bytes(false, &[LCD_CMD_FUNCTIONSET | display_function])?;
         self.config.delay.delay_us(27);
 
         // place the device into extended instruction mode
-        self.write_bytes(false, &[LCD_CMD_FUNCTIONSET | display_function | LCD_FLAG_INSTUCTION_EXTENSION])?;
+        self.write_bytes(
+            false,
+            &[LCD_CMD_FUNCTIONSET | display_function | LCD_FLAG_INSTUCTION_EXTENSION],
+        )?;
         self.config.delay.delay_us(27);
 
         // set internal OSC frequency
@@ -96,7 +92,7 @@ where
         self.config.delay.delay_us(27);
 
         // set contrast
-        let contrast_low: u8 =0x08;
+        let contrast_low: u8 = 0x08;
         self.write_bytes(false, &[LCD_CMD_SET_CONTRAST_LOW | contrast_low])?;
         self.config.delay.delay_us(27);
 
@@ -116,7 +112,7 @@ where
 
         // display on/off control
         let display_control: u8 = LCD_FLAG_DISPLAYON | LCD_FLAG_CURSOROFF | LCD_FLAG_BLINKOFF;
-        self.write_bytes( false, &[LCD_CMD_DISPLAYCONTROL | display_control])?;
+        self.write_bytes(false, &[LCD_CMD_DISPLAYCONTROL | display_control])?;
         self.config.delay.delay_us(27);
 
         // clear display
@@ -159,7 +155,10 @@ where
             idx += 1;
         }
         // send the data
-        self.config.i2c.write(self.config.address, &self.buffer[..idx]).map_err(CharacterDisplayError::I2cError)?;
+        self.config
+            .i2c
+            .write(self.config.address, &self.buffer[..idx])
+            .map_err(CharacterDisplayError::I2cError)?;
         Ok(())
     }
 }
@@ -193,7 +192,8 @@ where
         }
     }
 }
-impl<I2C, DELAY, DEVICE> DisplayActionsTrait<I2C, DELAY, DEVICE> for ST7032iDisplayActions<I2C, DELAY>
+impl<I2C, DELAY, DEVICE> DisplayActionsTrait<I2C, DELAY, DEVICE>
+    for ST7032iDisplayActions<I2C, DELAY>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
@@ -213,17 +213,11 @@ where
         )
     }
 
-    fn clear(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn clear(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         self.base.clear(device)
     }
 
-    fn home(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn home(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         self.base.home(device)
     }
 
@@ -260,31 +254,19 @@ where
         self.base.show_display(device, show_display)
     }
 
-    fn scroll_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn scroll_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         self.base.scroll_left(device)
     }
 
-    fn scroll_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn scroll_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         self.base.scroll_right(device)
     }
 
-    fn left_to_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn left_to_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         self.base.left_to_right(device)
     }
 
-    fn right_to_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn right_to_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         self.base.right_to_left(device)
     }
 
@@ -296,11 +278,7 @@ where
         self.base.autoscroll(device, autoscroll)
     }
 
-    fn print(
-        &mut self,
-        device: &mut DEVICE,
-        text: &str,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn print(&mut self, device: &mut DEVICE, text: &str) -> Result<(), CharacterDisplayError<I2C>> {
         self.base.print(device, text)
     }
 
@@ -323,12 +301,21 @@ where
 
     /// Sets the contrast setting of the display (if supported).
     /// The constrat value os a 6-bit value, and will be masked to 0x3F.
-    fn set_contrast(&mut self, device: &mut DEVICE, contrast: u8) -> Result<(), CharacterDisplayError<I2C>> {
-        self.contrast_low = contrast&0x0F;
+    fn set_contrast(
+        &mut self,
+        device: &mut DEVICE,
+        contrast: u8,
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        self.contrast_low = contrast & 0x0F;
         self.power_icon_contrast_hi = ((contrast >> 4) & 0x03) | self.power_icon_contrast_hi & 0x0C;
 
         // first set device into extended instruction mode
-        device.write_bytes(false, &[LCD_CMD_FUNCTIONSET | self.base.get_display_function() | LCD_FLAG_INSTUCTION_EXTENSION])?;
+        device.write_bytes(
+            false,
+            &[LCD_CMD_FUNCTIONSET
+                | self.base.get_display_function()
+                | LCD_FLAG_INSTUCTION_EXTENSION],
+        )?;
         device.delay().delay_us(27);
 
         // set the lower 4 bits of the contrast
@@ -336,23 +323,27 @@ where
         device.delay().delay_us(27);
 
         // set the higher 2 bits of the contrast
-        device.write_bytes(false, &[LCD_CMD_SET_PWR_ICON_CONTRAST_HI | self.power_icon_contrast_hi])?;
+        device.write_bytes(
+            false,
+            &[LCD_CMD_SET_PWR_ICON_CONTRAST_HI | self.power_icon_contrast_hi],
+        )?;
         device.delay().delay_us(27);
 
         // return to normal instructions
-        device.write_bytes(false, &[LCD_CMD_FUNCTIONSET | self.base.get_display_function()])?;
+        device.write_bytes(
+            false,
+            &[LCD_CMD_FUNCTIONSET | self.base.get_display_function()],
+        )?;
         device.delay().delay_us(27);
         Ok(())
     }
 }
 
-
-
 #[cfg(test)]
 mod lib_tests {
     extern crate std;
-    use crate::{driver::DisplayActionsTrait, LcdDisplayType};
     use crate::driver::standard::StandardCharacterDisplayHandler;
+    use crate::{driver::DisplayActionsTrait, LcdDisplayType};
 
     use super::*;
     use embedded_hal_mock::eh1::{
@@ -364,20 +355,9 @@ mod lib_tests {
     fn test_write_bytes() {
         let i2c_address = 0x3e;
         let expected_i2c_transactions = std::vec![
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0100_0000,
-                0x01,
-                0x02,
-                0x03,
-            ]),
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0100_0000,
-                0x04,
-            ]),
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,
-                0xAB,
-            ]),
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0000, 0x01, 0x02, 0x03,]),
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0000, 0x04,]),
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0000, 0xAB,]),
         ];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
@@ -389,7 +369,6 @@ mod lib_tests {
         };
         let mut driver = ST7032i::new(device);
 
-
         driver.write_bytes(true, &[0x01, 0x02, 0x03]).unwrap();
         driver.write_bytes(true, &[0x04]).unwrap();
         driver.write_bytes(false, &[0xAB]).unwrap();
@@ -399,12 +378,10 @@ mod lib_tests {
     #[test]
     fn test_clear() {
         let i2c_address = 0x3e;
-        let expected_i2c_transactions = std::vec![
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,
-                0x01,
-            ]),
-        ];
+        let expected_i2c_transactions = std::vec![I2cTransaction::write(
+            i2c_address,
+            std::vec![0b0000_0000, 0x01,]
+        ),];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let config = DeviceSetupConfig {
@@ -423,8 +400,9 @@ mod lib_tests {
     #[test]
     fn test_print() {
         let i2c_address = 0x3e;
-        let expected_i2c_transactions = std::vec![
-            I2cTransaction::write(i2c_address, std::vec![
+        let expected_i2c_transactions = std::vec![I2cTransaction::write(
+            i2c_address,
+            std::vec![
                 0b0100_0000,
                 0x48,
                 0x65,
@@ -437,8 +415,8 @@ mod lib_tests {
                 0x72,
                 0x6c,
                 0x64,
-            ]),
-        ];
+            ]
+        ),];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let config = DeviceSetupConfig {
@@ -459,22 +437,28 @@ mod lib_tests {
         let i2c_address = 0x3e;
         let expected_i2c_transactions = std::vec![
             // send set CGRAM address command for location 2
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,    // control byte
-                0x40 | (2 << 3),
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0000_0000, // control byte
+                    0x40 | (2 << 3),
+                ]
+            ),
             // send the character data
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0100_0000,    // control byte
-                0b11011,
-                0b10001,
-                0b11011,
-                0b00000,
-                0b00000,
-                0b00100,
-                0b01110,
-                0b10001,
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0100_0000, // control byte
+                    0b11011,
+                    0b10001,
+                    0b11011,
+                    0b00000,
+                    0b00000,
+                    0b00100,
+                    0b01110,
+                    0b10001,
+                ]
+            ),
         ];
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let config = DeviceSetupConfig {
@@ -486,7 +470,13 @@ mod lib_tests {
         let mut device = ST7032i::new(config);
         let mut display = StandardCharacterDisplayHandler::default();
 
-        assert!(display.create_char(&mut device, 2, [0b11011, 0b10001, 0b11011, 0b00000, 0b00000, 0b00100, 0b01110, 0b10001]).is_ok());
+        assert!(display
+            .create_char(
+                &mut device,
+                2,
+                [0b11011, 0b10001, 0b11011, 0b00000, 0b00000, 0b00100, 0b01110, 0b10001]
+            )
+            .is_ok());
         device.config.i2c.done();
     }
 
@@ -496,25 +486,37 @@ mod lib_tests {
         let i2c_address = 0x3e;
         let expected_i2c_transactions = std::vec![
             // send function set command to set to extended instruction mode
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,    // control byte - command
-                0x39,   //  put device into extended instruction mode
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0000_0000, // control byte - command
+                    0x39,        //  put device into extended instruction mode
+                ]
+            ),
             // set the lower 4 bits of the contrast
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,    // control byte -  command
-                0x70 | (contrast_value & 0x0F),
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0000_0000, // control byte -  command
+                    0x70 | (contrast_value & 0x0F),
+                ]
+            ),
             // set the higher 2 bits of the contrast
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,    // control byte -  command
-                0x50 | 0x0C | ((contrast_value >> 4) & 0x03),
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0000_0000, // control byte -  command
+                    0x50 | 0x0C | ((contrast_value >> 4) & 0x03),
+                ]
+            ),
             // return to normal instructions
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,    // control byte -  command
-                0x38,
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0000_0000, // control byte -  command
+                    0x38,
+                ]
+            ),
         ];
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let config = DeviceSetupConfig {
@@ -524,13 +526,16 @@ mod lib_tests {
             delay: NoopDelay,
         };
         let mut device = ST7032i::new(config);
-        let mut display: ST7032iDisplayActions<I2cMock, NoopDelay> = ST7032iDisplayActions::<I2cMock, NoopDelay>::default();
-        assert!( <ST7032iDisplayActions<I2cMock, NoopDelay> as DisplayActionsTrait<I2cMock, NoopDelay, ST7032i<I2cMock, NoopDelay>>>::init_display_state(
-            &mut display,
-            0x18,
-            0x04,
-            0x02,
-        ).is_ok());
+        let mut display: ST7032iDisplayActions<I2cMock, NoopDelay> =
+            ST7032iDisplayActions::<I2cMock, NoopDelay>::default();
+        assert!(
+            <ST7032iDisplayActions<I2cMock, NoopDelay> as DisplayActionsTrait<
+                I2cMock,
+                NoopDelay,
+                ST7032i<I2cMock, NoopDelay>,
+            >>::init_display_state(&mut display, 0x18, 0x04, 0x02,)
+            .is_ok()
+        );
         assert!(display.set_contrast(&mut device, contrast_value).is_ok());
         device.i2c().done();
     }

@@ -28,9 +28,12 @@ use crate::{
     CharacterDisplayError, DeviceSetupConfig,
 };
 
-pub type GenericHD44780PCF8574T<I2C, DELAY> = HD44780<I2C, DELAY, GenericPCF8574TAdapter<I2C, DELAY>>;
-pub type AdafruitLCDBackpack<I2C, DELAY> = HD44780<I2C, DELAY, AdafruitLCDBackpackAdapter<I2C, DELAY>>;
-pub type DualHD44780PCF8574T<I2C, DELAY> = HD44780<I2C, DELAY, DualHD44780_PCF8574TAdapter<I2C, DELAY>>;
+pub type GenericHD44780PCF8574T<I2C, DELAY> =
+    HD44780<I2C, DELAY, GenericPCF8574TAdapter<I2C, DELAY>>;
+pub type AdafruitLCDBackpack<I2C, DELAY> =
+    HD44780<I2C, DELAY, AdafruitLCDBackpackAdapter<I2C, DELAY>>;
+pub type DualHD44780PCF8574T<I2C, DELAY> =
+    HD44780<I2C, DELAY, DualHD44780_PCF8574TAdapter<I2C, DELAY>>;
 
 // commands
 const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
@@ -77,7 +80,7 @@ pub struct HD44780<I2C, DELAY, DEVICE>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
-    DEVICE:  HD44780AdapterTrait<I2C, DELAY>,
+    DEVICE: HD44780AdapterTrait<I2C, DELAY>,
 {
     display_function: [u8; MAX_CONTROLLER_COUNT],
     display_control: [u8; MAX_CONTROLLER_COUNT],
@@ -118,13 +121,12 @@ where
     }
 }
 
-impl< I2C, DELAY, DEVICE> DisplayActionsTrait<I2C, DELAY, DEVICE> for HD44780<I2C, DELAY, DEVICE>
+impl<I2C, DELAY, DEVICE> DisplayActionsTrait<I2C, DELAY, DEVICE> for HD44780<I2C, DELAY, DEVICE>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
     DEVICE: HD44780AdapterTrait<I2C, DELAY>,
 {
-
     fn init_display_state(
         &mut self,
         display_function: u8,
@@ -140,21 +142,14 @@ where
         Ok(())
     }
 
-
-    fn clear(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn clear(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         for controller in 0..DEVICE::controller_count() {
             self.clear_controller(device, controller)?;
         }
         Ok(())
     }
 
-    fn home(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn home(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         self.home_controller(device, 0)?;
         self.active_controller = 0;
         Ok(())
@@ -221,40 +216,28 @@ where
         Ok(())
     }
 
-    fn scroll_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn scroll_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         for controller in 0..DEVICE::controller_count() {
             self.scroll_display_left_controller(device, controller)?;
         }
         Ok(())
     }
 
-    fn scroll_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn scroll_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         for controller in 0..DEVICE::controller_count() {
             self.scroll_display_right_controller(device, controller)?;
         }
         Ok(())
     }
 
-    fn left_to_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn left_to_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         for controller in 0..DEVICE::controller_count() {
             self.left_to_right_controller(device, controller)?;
         }
         Ok(())
     }
 
-    fn right_to_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn right_to_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         for controller in 0..DEVICE::controller_count() {
             self.right_to_left_controller(device, controller)?;
         }
@@ -272,11 +255,7 @@ where
         Ok(())
     }
 
-    fn print(
-        &mut self,
-        device: &mut DEVICE,
-        text: &str,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn print(&mut self, device: &mut DEVICE, text: &str) -> Result<(), CharacterDisplayError<I2C>> {
         self.print_controller(device, self.active_controller, text)
     }
 
@@ -309,11 +288,7 @@ where
             return Err(CharacterDisplayError::ReadNotSupported);
         }
 
-        device.read_bytes_from_controller(
-            self.active_controller,
-            true,
-            buffer,
-        )
+        device.read_bytes_from_controller(self.active_controller, true, buffer)
     }
 
     fn read_address_counter(
@@ -325,11 +300,7 @@ where
         }
         let mut buffer = [0];
 
-        device.read_bytes_from_controller(
-            self.active_controller,
-            false,
-            &mut buffer,
-        )?;
+        device.read_bytes_from_controller(self.active_controller, false, &mut buffer)?;
         // mask off the busy flag
         Ok(buffer[0] & 0x7F)
     }
@@ -347,11 +318,7 @@ where
         controller: usize,
         command: u8,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        device.write_byte_to_controller(
-            controller,
-            false,
-            command,
-        )
+        device.write_byte_to_controller(controller, false, command)
     }
 
     pub fn clear_controller(
@@ -539,11 +506,7 @@ where
             LCD_CMD_SETCGRAMADDR | ((location & 0x7) << 3),
         )?;
         for &charmap_byte in charmap.iter() {
-            device.write_byte_to_controller(
-                controller,
-                true,
-                charmap_byte,
-            )?;
+            device.write_byte_to_controller(controller, true, charmap_byte)?;
         }
         Ok(self)
     }
@@ -555,11 +518,7 @@ where
         text: &str,
     ) -> Result<(), CharacterDisplayError<I2C>> {
         for c in text.chars() {
-            device.write_byte_to_controller(
-                controller,
-                true,
-                c as u8,
-            )?;
+            device.write_byte_to_controller(controller, true, c as u8)?;
         }
         Ok(())
     }
@@ -568,7 +527,7 @@ where
 #[cfg(test)]
 mod lib_tests {
     extern crate std;
-    use crate::{LcdDisplayType, driver::DeviceHardwareTrait};
+    use crate::{driver::DeviceHardwareTrait, LcdDisplayType};
 
     use super::*;
     use embedded_hal_mock::eh1::{
@@ -651,20 +610,17 @@ mod lib_tests {
         ];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
-        let mut driver = GenericHD44780PCF8574T::new_adapter(
-            DeviceSetupConfig {
-                i2c: i2c,
-                address: i2c_address,
-                lcd_type: LcdDisplayType::Lcd16x4,
-                delay: NoopDelay,
-            }
-        );
+        let mut driver = GenericHD44780PCF8574T::new_adapter(DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        });
 
         let mut actions = GenericHD44780PCF8574T::default();
 
-
         assert!(actions.backlight(&mut driver, true).is_ok());
-        assert!(actions.backlight(&mut driver,false).is_ok());
+        assert!(actions.backlight(&mut driver, false).is_ok());
 
         // finish the i2c mock
         driver.i2c().done();
@@ -698,14 +654,12 @@ mod lib_tests {
         ];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
-        let mut driver = GenericHD44780PCF8574T::new_adapter(
-            DeviceSetupConfig {
-                i2c: i2c,
-                address: i2c_address,
-                lcd_type: LcdDisplayType::Lcd16x4,
-                delay: NoopDelay,
-            }
-        );
+        let mut driver = GenericHD44780PCF8574T::new_adapter(DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        });
         let mut actions = GenericHD44780PCF8574T::default();
 
         assert!(actions.print(&mut driver, "hello").is_ok());
@@ -718,14 +672,12 @@ mod lib_tests {
     fn test_set_cursor_out_of_range() {
         let i2c_address = 0x27_u8;
         let i2c = I2cMock::new(&[]);
-        let mut driver = GenericHD44780PCF8574T::new_adapter(
-            DeviceSetupConfig {
-                i2c: i2c,
-                address: i2c_address,
-                lcd_type: LcdDisplayType::Lcd16x4,
-                delay: NoopDelay,
-            }
-        );
+        let mut driver = GenericHD44780PCF8574T::new_adapter(DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        });
         let mut actions = GenericHD44780PCF8574T::default();
 
         assert!(actions.set_cursor(&mut driver, 20, 0).is_err());
@@ -755,16 +707,13 @@ mod lib_tests {
             I2cTransaction::write(i2c_address, std::vec![0b1000_0000]), // high nibble 0x8, rw=0, enable1=0, enabl2=0
             I2cTransaction::write(i2c_address, std::vec![0b1010_0010]), // low nibble 0xA, rw=0, enable1=0, enabl2=1
             I2cTransaction::write(i2c_address, std::vec![0b1010_0000]), // low nibble 0xA, rw=0, enable1=0, enabl2=0
-
         ]);
-        let mut driver = DualHD44780PCF8574T::new_adapter(
-            DeviceSetupConfig {
-                i2c: i2c,
-                address: i2c_address,
-                lcd_type: LcdDisplayType::Lcd40x4,
-                delay: NoopDelay,
-            }
-        );
+        let mut driver = DualHD44780PCF8574T::new_adapter(DeviceSetupConfig {
+            i2c: i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd40x4,
+            delay: NoopDelay,
+        });
         let mut actions = DualHD44780PCF8574T::default();
 
         assert!(actions.set_cursor(&mut driver, 20, 1).is_ok());

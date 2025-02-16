@@ -2,7 +2,9 @@ use bitfield::bitfield;
 use core::marker::PhantomData;
 use embedded_hal::{delay::DelayNs, i2c};
 
-use crate::{driver::DeviceHardwareTrait, CharacterDisplayError, DeviceSetupConfig, LcdDisplayType};
+use crate::{
+    driver::DeviceHardwareTrait, CharacterDisplayError, DeviceSetupConfig, LcdDisplayType,
+};
 
 use super::HD44780AdapterTrait;
 
@@ -73,9 +75,7 @@ where
         &mut self.config.i2c
     }
 
-    fn init(
-        &mut self,
-    ) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
+    fn init(&mut self) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
         self.adapter_init()
     }
 
@@ -128,7 +128,7 @@ where
         // does nothing
     }
 
-    fn set_backlight(&mut self, value: bool) ->Result<(), CharacterDisplayError<I2C>> {
+    fn set_backlight(&mut self, value: bool) -> Result<(), CharacterDisplayError<I2C>> {
         self.bits.set_backlight(value as u8);
         self.write_bits_to_gpio()
     }
@@ -159,20 +159,18 @@ mod tests {
     extern crate std;
     use super::*;
     use embedded_hal_mock::eh1::{
-        i2c::{Mock as I2cMock, Transaction as I2cTransaction},
         delay::NoopDelay,
+        i2c::{Mock as I2cMock, Transaction as I2cTransaction},
     };
 
     #[test]
     fn test_bad_device_id() {
-        let mut config = DualHD44780_PCF8574TAdapter::new(
-            DeviceSetupConfig {
-                i2c: I2cMock::new(&[]),
-                address: 0x27,
-                lcd_type: LcdDisplayType::Lcd40x4,
-                delay: NoopDelay,
-            },
-        );
+        let mut config = DualHD44780_PCF8574TAdapter::new(DeviceSetupConfig {
+            i2c: I2cMock::new(&[]),
+            address: 0x27,
+            lcd_type: LcdDisplayType::Lcd40x4,
+            delay: NoopDelay,
+        });
         assert!(config.set_enable(true, 2).is_err());
         assert!(config.bits() == 0);
         assert!(config.set_enable(true, 0).is_ok());
@@ -189,17 +187,15 @@ mod tests {
 
     #[test]
     fn test_dual_hd44780_adapter() {
-        let mut config = DualHD44780_PCF8574TAdapter::new(
-            DeviceSetupConfig {
-                i2c: I2cMock::new(&[
-                    I2cTransaction::write(0x27, std::vec![0b1010_1101]),
-                    I2cTransaction::write(0x27, std::vec![0b0101_0010]),
-                ]),
-                address: 0x27,
-                lcd_type: LcdDisplayType::Lcd40x4,
-                delay: NoopDelay,
-            },
-        );
+        let mut config = DualHD44780_PCF8574TAdapter::new(DeviceSetupConfig {
+            i2c: I2cMock::new(&[
+                I2cTransaction::write(0x27, std::vec![0b1010_1101]),
+                I2cTransaction::write(0x27, std::vec![0b0101_0010]),
+            ]),
+            address: 0x27,
+            lcd_type: LcdDisplayType::Lcd40x4,
+            delay: NoopDelay,
+        });
         config.set_rs(true);
         config.set_rw(false);
         assert!(config.set_enable(true, 0).is_ok());
@@ -227,14 +223,12 @@ mod tests {
     #[test]
     fn test_dual_hd44780_adapter_write_bits_to_gpio() {
         let expected_transactions = [I2cTransaction::write(0x27, std::vec![0b10100011])];
-        let mut config = DualHD44780_PCF8574TAdapter::new(
-            DeviceSetupConfig {
-                i2c: I2cMock::new(&expected_transactions),
-                address: 0x27,
-                lcd_type: LcdDisplayType::Lcd40x4,
-                delay: NoopDelay,
-            },
-        );
+        let mut config = DualHD44780_PCF8574TAdapter::new(DeviceSetupConfig {
+            i2c: I2cMock::new(&expected_transactions),
+            address: 0x27,
+            lcd_type: LcdDisplayType::Lcd40x4,
+            delay: NoopDelay,
+        });
         config.set_rs(true);
         config.set_rw(false);
         assert!(config.set_enable(false, 0).is_ok());
@@ -246,14 +240,12 @@ mod tests {
 
     #[test]
     fn test_row_to_controller_row() {
-        let mut config = DualHD44780_PCF8574TAdapter::new(
-            DeviceSetupConfig {
-                i2c: I2cMock::new(&[]),
-                address: 0x27,
-                lcd_type: LcdDisplayType::Lcd40x4,
-                delay: NoopDelay,
-            },
-        );
+        let mut config = DualHD44780_PCF8574TAdapter::new(DeviceSetupConfig {
+            i2c: I2cMock::new(&[]),
+            address: 0x27,
+            lcd_type: LcdDisplayType::Lcd40x4,
+            delay: NoopDelay,
+        });
         assert_eq!(config.row_to_controller_row(0), (0, 0));
         assert_eq!(config.row_to_controller_row(1), (0, 1));
         assert_eq!(config.row_to_controller_row(2), (1, 0));

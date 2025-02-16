@@ -1,8 +1,8 @@
-use embedded_hal::{delay::DelayNs, i2c};
 use crate::{
-    driver::{DisplayActionsTrait, DeviceHardwareTrait},
+    driver::{DeviceHardwareTrait, DisplayActionsTrait},
     CharacterDisplayError,
 };
+use embedded_hal::{delay::DelayNs, i2c};
 
 // commands
 pub const LCD_CMD_CLEARDISPLAY: u8 = 0x01; //  Clear display, set cursor position to zero
@@ -42,7 +42,6 @@ pub const LCD_FLAG_1LINE: u8 = 0x00; //  LCD 1 line mode
 pub const LCD_FLAG_5x10_DOTS: u8 = 0x04; //  10 pixel high font mode
 pub const LCD_FLAG_5x8_DOTS: u8 = 0x00; //  8 pixel high font mode
 
-
 /// `StandardActionsHandler`` is a struct that implements the `DisplayActionsTrait` trait. Most of the
 /// character displays use a standard set of commands to control the display. This struct implements
 /// for those standard commands.
@@ -52,9 +51,7 @@ pub struct StandardCharacterDisplayHandler {
     display_mode: u8,
 }
 
-
-impl Default for StandardCharacterDisplayHandler
-{
+impl Default for StandardCharacterDisplayHandler {
     fn default() -> Self {
         StandardCharacterDisplayHandler {
             display_function: 0,
@@ -95,20 +92,14 @@ where
         Ok(())
     }
 
-    fn clear(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn clear(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         device.write_bytes(false, &[LCD_CMD_CLEARDISPLAY])?;
         // wait for command to complete
         device.delay().delay_us(1530);
         Ok(())
     }
 
-    fn home(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn home(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         device.write_bytes(false, &[LCD_CMD_RETURNHOME])?;
         // wait for command to complete
         device.delay().delay_us(1530);
@@ -185,51 +176,39 @@ where
         Ok(())
     }
 
-    fn scroll_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
-        device.write_bytes(false, &[LCD_CMD_CURSORSHIFT | LCD_FLAG_DISPLAYMOVE | LCD_FLAG_MOVELEFT])?;
+    fn scroll_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
+        device.write_bytes(
+            false,
+            &[LCD_CMD_CURSORSHIFT | LCD_FLAG_DISPLAYMOVE | LCD_FLAG_MOVELEFT],
+        )?;
         // wait for command to complete
         device.delay().delay_us(39);
         Ok(())
     }
 
-    fn scroll_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
-        device.write_bytes(false, &[LCD_CMD_CURSORSHIFT | LCD_FLAG_DISPLAYMOVE | LCD_FLAG_MOVERIGHT])?;
+    fn scroll_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
+        device.write_bytes(
+            false,
+            &[LCD_CMD_CURSORSHIFT | LCD_FLAG_DISPLAYMOVE | LCD_FLAG_MOVERIGHT],
+        )?;
         // wait for command to complete
         device.delay().delay_us(39);
         Ok(())
     }
 
-    fn left_to_right(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn left_to_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         // TODO revisit this function's logic
         self.display_mode |= LCD_FLAG_ENTRYLEFT;
-        device.write_bytes(
-            false,
-            &[LCD_CMD_ENTRYMODESET | self.display_mode],
-        )?;
+        device.write_bytes(false, &[LCD_CMD_ENTRYMODESET | self.display_mode])?;
         // wait for command to complete
         device.delay().delay_us(39);
         Ok(())
     }
 
-    fn right_to_left(
-        &mut self,
-        device: &mut DEVICE,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn right_to_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
         // TODO revisit this function's logic
         self.display_mode |= LCD_FLAG_ENTRYRIGHT;
-        device.write_bytes(
-            false,
-            &[LCD_CMD_ENTRYMODESET | self.display_mode],
-        )?;
+        device.write_bytes(false, &[LCD_CMD_ENTRYMODESET | self.display_mode])?;
         // wait for command to complete
         device.delay().delay_us(39);
         Ok(())
@@ -245,20 +224,13 @@ where
         } else {
             self.display_mode &= !LCD_FLAG_ENTRYSHIFTINCREMENT;
         }
-        device.write_bytes(
-            false,
-            &[LCD_CMD_ENTRYMODESET | self.display_mode],
-        )?;
+        device.write_bytes(false, &[LCD_CMD_ENTRYMODESET | self.display_mode])?;
         // wait for command to complete
         device.delay().delay_us(39);
         Ok(())
     }
 
-    fn print(
-        &mut self,
-        device: &mut DEVICE,
-        text: &str,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn print(&mut self, device: &mut DEVICE, text: &str) -> Result<(), CharacterDisplayError<I2C>> {
         device.write_bytes(true, text.as_bytes())?;
         // wait for command to complete
         device.delay().delay_us(43);

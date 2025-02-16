@@ -2,15 +2,15 @@ pub mod adafruit_lcd_backpack;
 pub mod dual_controller_pcf8574t;
 pub mod generic_pcf8574t;
 
-use crate::{CharacterDisplayError, LcdDisplayType, DeviceSetupConfig, driver::DeviceHardwareTrait};
+use crate::{
+    driver::DeviceHardwareTrait, CharacterDisplayError, DeviceSetupConfig, LcdDisplayType,
+};
 use embedded_hal::{delay::DelayNs, i2c};
 
 use super::{
-    LCD_FLAG_4BITMODE,  LCD_FLAG_2LINE, LCD_FLAG_5x8_DOTS,
-    LCD_FLAG_DISPLAYON, LCD_FLAG_CURSOROFF, LCD_FLAG_BLINKOFF,
-    LCD_FLAG_ENTRYLEFT, LCD_FLAG_ENTRYSHIFTDECREMENT,
-    LCD_CMD_FUNCTIONSET, LCD_CMD_DISPLAYCONTROL, LCD_CMD_ENTRYMODESET,
-    LCD_CMD_CLEARDISPLAY, LCD_CMD_RETURNHOME,
+    LCD_FLAG_5x8_DOTS, LCD_CMD_CLEARDISPLAY, LCD_CMD_DISPLAYCONTROL, LCD_CMD_ENTRYMODESET,
+    LCD_CMD_FUNCTIONSET, LCD_CMD_RETURNHOME, LCD_FLAG_2LINE, LCD_FLAG_4BITMODE, LCD_FLAG_BLINKOFF,
+    LCD_FLAG_CURSOROFF, LCD_FLAG_DISPLAYON, LCD_FLAG_ENTRYLEFT, LCD_FLAG_ENTRYSHIFTDECREMENT,
 };
 
 /// Trait for implementing an I2C adapter for a specific HD44780 device. Assumes the connection
@@ -21,10 +21,7 @@ where
     I2C: i2c::I2c,
     DELAY: DelayNs,
 {
-    fn adapter_init(
-        &mut self,
-    ) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>>
-    {
+    fn adapter_init(&mut self) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
         if !Self::is_supported(self.lcd_type()) {
             return Err(CharacterDisplayError::UnsupportedDisplayType);
         }
@@ -42,50 +39,19 @@ where
             }
 
             // Put LCD into 4 bit mode, device starts in 8 bit mode
-            self.write_nibble_to_controller(
-                controller,
-                false,
-                0x03,
-            )?;
+            self.write_nibble_to_controller(controller, false, 0x03)?;
             self.device_config().delay.delay_ms(5);
-            self.write_nibble_to_controller(
-                controller,
-                false,
-                0x03,
-            )?;
+            self.write_nibble_to_controller(controller, false, 0x03)?;
             self.device_config().delay.delay_ms(5);
-            self.write_nibble_to_controller(
-                controller,
-                false,
-                0x03,
-            )?;
+            self.write_nibble_to_controller(controller, false, 0x03)?;
             self.device_config().delay.delay_us(150);
-            self.write_nibble_to_controller(
-                controller,
-                false,
-                0x02,
-            )?;
+            self.write_nibble_to_controller(controller, false, 0x02)?;
 
-            self.send_command_to_controller(
-                controller,
-                LCD_CMD_FUNCTIONSET | display_function,
-            )?;
-            self.send_command_to_controller(
-                controller,
-                LCD_CMD_DISPLAYCONTROL | display_control,
-            )?;
-            self.send_command_to_controller(
-                controller,
-                LCD_CMD_ENTRYMODESET | display_mode,
-            )?;
-            self.send_command_to_controller(
-                controller,
-                LCD_CMD_CLEARDISPLAY,
-            )?;
-            self.send_command_to_controller(
-                controller,
-                LCD_CMD_RETURNHOME,
-            )?;
+            self.send_command_to_controller(controller, LCD_CMD_FUNCTIONSET | display_function)?;
+            self.send_command_to_controller(controller, LCD_CMD_DISPLAYCONTROL | display_control)?;
+            self.send_command_to_controller(controller, LCD_CMD_ENTRYMODESET | display_mode)?;
+            self.send_command_to_controller(controller, LCD_CMD_CLEARDISPLAY)?;
+            self.send_command_to_controller(controller, LCD_CMD_RETURNHOME)?;
         }
         // set up the display
         self.set_backlight(true)?;
@@ -105,7 +71,6 @@ where
 
     /// Determines of display type is supported by this adapter
     fn is_supported(display_type: LcdDisplayType) -> bool;
-
 
     /// Returns the bitfield value for the adapter
     fn bits(&self) -> u8;
@@ -134,12 +99,12 @@ where
 
     fn set_data(&mut self, value: u8);
 
-    fn write_bits_to_gpio(
-        &mut self,
-    ) -> Result<(), CharacterDisplayError<I2C>> {
+    fn write_bits_to_gpio(&mut self) -> Result<(), CharacterDisplayError<I2C>> {
         let data = [self.bits()];
         let i2c_address = self.i2c_address();
-        self.device_config().i2c.write(i2c_address, &data)
+        self.device_config()
+            .i2c
+            .write(i2c_address, &data)
             .map_err(CharacterDisplayError::I2cError)?;
         Ok(())
     }
@@ -149,11 +114,7 @@ where
         controller: usize,
         command: u8,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        self.write_byte_to_controller(
-            controller,
-            false,
-            command,
-        )
+        self.write_byte_to_controller(controller, false, command)
     }
 
     /// writes a full byte to the indicated controller on device. If `rs_setting` is `true`, the data is written to the data register,
@@ -166,13 +127,7 @@ where
         value: u8,
     ) -> Result<(), CharacterDisplayError<I2C>> {
         self.write_nibble_to_controller(controller, rs_setting, value >> 4)
-            .and_then(|_| {
-                self.write_nibble_to_controller(
-                    controller,
-                    rs_setting,
-                    value & 0x0F,
-                )
-            })
+            .and_then(|_| self.write_nibble_to_controller(controller, rs_setting, value & 0x0F))
     }
 
     /// writes the lower nibble of a `value` byte to the indicated controller on device. Typically only used for device initialization in 4 bit mode.
@@ -213,9 +168,7 @@ where
         unimplemented!("Reads are not supported for device");
     }
 
-    fn is_busy(
-        &mut self,
-    ) -> Result<bool, CharacterDisplayError<I2C>> {
+    fn is_busy(&mut self) -> Result<bool, CharacterDisplayError<I2C>> {
         Ok(false)
     }
 

@@ -1,18 +1,15 @@
-
 use embedded_hal::{delay::DelayNs, i2c};
 
 use crate::{
-    driver::DeviceHardwareTrait,
-    CharacterDisplayError, DeviceSetupConfig, LcdDisplayType,
+    driver::DeviceHardwareTrait, CharacterDisplayError, DeviceSetupConfig, LcdDisplayType,
 };
 
-const CONTROL_NOT_LAST_BYTE: u8 = 0b1000_0000;  // Another control byte will follow the next data byte.
-const CONTROL_LAST_BYTE: u8 = 0b0000_0000;      // Last control byte. Only a stream of data bytes will follow.
+const CONTROL_NOT_LAST_BYTE: u8 = 0b1000_0000; // Another control byte will follow the next data byte.
+const CONTROL_LAST_BYTE: u8 = 0b0000_0000; // Last control byte. Only a stream of data bytes will follow.
 const CONTROL_RS_DATA: u8 = 0b0100_0000;
 const CONTROL_RS_COMMAND: u8 = 0b0000_0000;
 
-
-const MAX_BUFFER_SIZE: usize = 82;      // 80 bytes of data + 2 control bytes.
+const MAX_BUFFER_SIZE: usize = 82; // 80 bytes of data + 2 control bytes.
 
 /// AIP31068 device driver implementation
 pub struct AIP31068<I2C, DELAY>
@@ -20,10 +17,9 @@ where
     I2C: i2c::I2c,
     DELAY: DelayNs,
 {
-    buffer: [u8; MAX_BUFFER_SIZE],  // buffer for I2C data
+    buffer: [u8; MAX_BUFFER_SIZE], // buffer for I2C data
     config: DeviceSetupConfig<I2C, DELAY>,
 }
-
 
 impl<I2C, DELAY> DeviceHardwareTrait<I2C, DELAY> for AIP31068<I2C, DELAY>
 where
@@ -61,14 +57,11 @@ where
         &mut self.config.i2c
     }
 
-    fn init(
-        &mut self,
-    ) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
+    fn init(&mut self) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
         use crate::driver::standard::{
-            LCD_FLAG_2LINE, LCD_FLAG_5x8_DOTS, LCD_CMD_FUNCTIONSET,
-            LCD_FLAG_DISPLAYON, LCD_FLAG_CURSOROFF, LCD_FLAG_BLINKOFF, LCD_CMD_DISPLAYCONTROL,
-            LCD_CMD_CLEARDISPLAY,
-            LCD_FLAG_ENTRYLEFT, LCD_FLAG_ENTRYSHIFTDECREMENT, LCD_CMD_ENTRYMODESET,
+            LCD_FLAG_5x8_DOTS, LCD_CMD_CLEARDISPLAY, LCD_CMD_DISPLAYCONTROL, LCD_CMD_ENTRYMODESET,
+            LCD_CMD_FUNCTIONSET, LCD_FLAG_2LINE, LCD_FLAG_BLINKOFF, LCD_FLAG_CURSOROFF,
+            LCD_FLAG_DISPLAYON, LCD_FLAG_ENTRYLEFT, LCD_FLAG_ENTRYSHIFTDECREMENT,
         };
 
         // wait 15 ms for power on
@@ -83,7 +76,7 @@ where
 
         // display on/off control
         let display_control: u8 = LCD_FLAG_DISPLAYON | LCD_FLAG_CURSOROFF | LCD_FLAG_BLINKOFF;
-        self.write_bytes( false, &[LCD_CMD_DISPLAYCONTROL | display_control])?;
+        self.write_bytes(false, &[LCD_CMD_DISPLAYCONTROL | display_control])?;
 
         // wait 39 us
         self.config.delay.delay_us(39);
@@ -129,17 +122,19 @@ where
             idx += 1;
         }
         // send the data
-        self.config.i2c.write(self.config.address, &self.buffer[..idx]).map_err(CharacterDisplayError::I2cError)?;
+        self.config
+            .i2c
+            .write(self.config.address, &self.buffer[..idx])
+            .map_err(CharacterDisplayError::I2cError)?;
         Ok(())
     }
 }
 
-
 #[cfg(test)]
 mod lib_tests {
     extern crate std;
-    use crate::{driver::DisplayActionsTrait, LcdDisplayType};
     use crate::driver::standard::StandardCharacterDisplayHandler;
+    use crate::{driver::DisplayActionsTrait, LcdDisplayType};
 
     use super::*;
     use embedded_hal_mock::eh1::{
@@ -151,20 +146,9 @@ mod lib_tests {
     fn test_write_bytes() {
         let i2c_address = 0x3e;
         let expected_i2c_transactions = std::vec![
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0100_0000,
-                0x01,
-                0x02,
-                0x03,
-            ]),
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0100_0000,
-                0x04,
-            ]),
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,
-                0xAB,
-            ]),
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0000, 0x01, 0x02, 0x03,]),
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0000, 0x04,]),
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0000, 0xAB,]),
         ];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
@@ -176,7 +160,6 @@ mod lib_tests {
         };
         let mut driver = AIP31068::new(device);
 
-
         driver.write_bytes(true, &[0x01, 0x02, 0x03]).unwrap();
         driver.write_bytes(true, &[0x04]).unwrap();
         driver.write_bytes(false, &[0xAB]).unwrap();
@@ -186,12 +169,10 @@ mod lib_tests {
     #[test]
     fn test_clear() {
         let i2c_address = 0x3e;
-        let expected_i2c_transactions = std::vec![
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,
-                0x01,
-            ]),
-        ];
+        let expected_i2c_transactions = std::vec![I2cTransaction::write(
+            i2c_address,
+            std::vec![0b0000_0000, 0x01,]
+        ),];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let config = DeviceSetupConfig {
@@ -210,8 +191,9 @@ mod lib_tests {
     #[test]
     fn test_print() {
         let i2c_address = 0x3e;
-        let expected_i2c_transactions = std::vec![
-            I2cTransaction::write(i2c_address, std::vec![
+        let expected_i2c_transactions = std::vec![I2cTransaction::write(
+            i2c_address,
+            std::vec![
                 0b0100_0000,
                 0x48,
                 0x65,
@@ -224,8 +206,8 @@ mod lib_tests {
                 0x72,
                 0x6c,
                 0x64,
-            ]),
-        ];
+            ]
+        ),];
 
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let config = DeviceSetupConfig {
@@ -246,22 +228,28 @@ mod lib_tests {
         let i2c_address = 0x3e;
         let expected_i2c_transactions = std::vec![
             // send set CGRAM address command for location 2
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0000_0000,    // control byte
-                0x40 | (2 << 3),
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0000_0000, // control byte
+                    0x40 | (2 << 3),
+                ]
+            ),
             // send the character data
-            I2cTransaction::write(i2c_address, std::vec![
-                0b0100_0000,    // control byte
-                0b11011,
-                0b10001,
-                0b11011,
-                0b00000,
-                0b00000,
-                0b00100,
-                0b01110,
-                0b10001,
-            ]),
+            I2cTransaction::write(
+                i2c_address,
+                std::vec![
+                    0b0100_0000, // control byte
+                    0b11011,
+                    0b10001,
+                    0b11011,
+                    0b00000,
+                    0b00000,
+                    0b00100,
+                    0b01110,
+                    0b10001,
+                ]
+            ),
         ];
         let i2c = I2cMock::new(&expected_i2c_transactions);
         let config = DeviceSetupConfig {
@@ -273,8 +261,13 @@ mod lib_tests {
         let mut device = AIP31068::new(config);
         let mut display = StandardCharacterDisplayHandler::default();
 
-        assert!(display.create_char(&mut device, 2, [0b11011, 0b10001, 0b11011, 0b00000, 0b00000, 0b00100, 0b01110, 0b10001]).is_ok());
+        assert!(display
+            .create_char(
+                &mut device,
+                2,
+                [0b11011, 0b10001, 0b11011, 0b00000, 0b00000, 0b00100, 0b01110, 0b10001]
+            )
+            .is_ok());
         device.config.i2c.done();
     }
-
 }
