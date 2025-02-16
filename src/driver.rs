@@ -167,13 +167,22 @@ where
         _device: &mut DEVICE,
         _buffer: &mut [u8],
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        unimplemented!("Reads are not supported for device");
+        Err(CharacterDisplayError::UnsupportedOperation)
     }
 
     fn read_address_counter(
         &mut self,
         _device: &mut DEVICE,
     ) -> Result<u8, CharacterDisplayError<I2C>> {
-        unimplemented!("Reads are not supported for device");
+        Err(CharacterDisplayError::UnsupportedOperation)
+    }
+
+    /// Set the contrast of the display. This is not supported by all devices.
+    fn set_contrast(
+        &mut self,
+        _device: &mut DEVICE,
+        _contrast: u8,
+    ) -> Result<(), CharacterDisplayError<I2C>> {
+        Err(CharacterDisplayError::UnsupportedOperation)
     }
 }

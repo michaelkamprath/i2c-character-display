@@ -152,7 +152,7 @@ pub type CharacterDisplayST7032i<I2C, DELAY> =
         I2C,
         DELAY,
         crate::driver::st7032i::ST7032i<I2C, DELAY>,
-        crate::driver::standard::StandardCharacterDisplayHandler,
+        crate::driver::st7032i::ST7032iDisplayActions<I2C, DELAY>,
     >;
 
 // commands
@@ -597,6 +597,12 @@ where
     /// Note that the AIP31068 controller does not support backlight control.
     pub fn backlight(&mut self, on: bool) -> Result<&mut Self, CharacterDisplayError<I2C>> {
         self.actions.backlight(&mut self.device, on)?;
+        Ok(self)
+    }
+
+    /// Set the contrast level of the display. This is only supported by the ST7032i controller.
+    pub fn set_contrast(&mut self, contrast: u8) -> Result<&mut Self, CharacterDisplayError<I2C>> {
+        self.actions.set_contrast(&mut self.device, contrast)?;
         Ok(self)
     }
 }

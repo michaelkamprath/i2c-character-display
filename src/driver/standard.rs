@@ -64,6 +64,19 @@ impl Default for StandardCharacterDisplayHandler
     }
 }
 
+impl StandardCharacterDisplayHandler {
+    pub fn get_display_function(&self) -> u8 {
+        self.display_function
+    }
+
+    pub fn get_display_control(&self) -> u8 {
+        self.display_control
+    }
+
+    pub fn get_display_mode(&self) -> u8 {
+        self.display_mode
+    }
+}
 impl<I2C, DELAY, DEVICE> DisplayActionsTrait<I2C, DELAY, DEVICE> for StandardCharacterDisplayHandler
 where
     I2C: i2c::I2c,
