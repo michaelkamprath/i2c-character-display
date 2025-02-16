@@ -15,7 +15,7 @@ const CONTROL_RS_COMMAND: u8 = 0b0000_0000;
 const MAX_BUFFER_SIZE: usize = 82;      // 80 bytes of data + 2 control bytes.
 
 /// AIP31068 device driver implementation
-pub struct AIP31068<I2C, DELAY>
+pub struct ST7032i<I2C, DELAY>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
@@ -25,13 +25,13 @@ where
 }
 
 
-impl<I2C, DELAY> DeviceHardwareTrait<I2C, DELAY> for AIP31068<I2C, DELAY>
+impl<I2C, DELAY> DeviceHardwareTrait<I2C, DELAY> for ST7032i<I2C, DELAY>
 where
     I2C: i2c::I2c,
     DELAY: DelayNs,
 {
     fn new(config: DeviceSetupConfig<I2C, DELAY>) -> Self {
-        AIP31068 {
+        ST7032i {
             buffer: [0; MAX_BUFFER_SIZE],
             config: config,
         }
@@ -65,38 +65,63 @@ where
         &mut self,
     ) -> Result<(u8, u8, u8), CharacterDisplayError<I2C>> {
         use crate::driver::standard::{
-            LCD_FLAG_2LINE, LCD_FLAG_5x8_DOTS, LCD_CMD_FUNCTIONSET,
+            LCD_FLAG_8BITMODE, LCD_FLAG_2LINE, LCD_FLAG_5x8_DOTS, LCD_CMD_FUNCTIONSET,
             LCD_FLAG_DISPLAYON, LCD_FLAG_CURSOROFF, LCD_FLAG_BLINKOFF, LCD_CMD_DISPLAYCONTROL,
             LCD_CMD_CLEARDISPLAY,
             LCD_FLAG_ENTRYLEFT, LCD_FLAG_ENTRYSHIFTDECREMENT, LCD_CMD_ENTRYMODESET,
         };
 
-        // wait 15 ms for power on
-        self.config.delay.delay_ms(15);
+        const LCD_FLAG_INSTUCTION_EXTENSION: u8 = 0x01;
+        const LCD_FLAG_INSTRUCTION_NORMAL: u8 = 0x00;
+
+        // wait 40 ms for power on
+        self.config.delay.delay_ms(40);
 
         // send function set command
-        let display_function: u8 = LCD_FLAG_2LINE | LCD_FLAG_5x8_DOTS;
+        let display_function: u8 =  LCD_FLAG_8BITMODE | LCD_FLAG_2LINE | LCD_FLAG_5x8_DOTS | LCD_FLAG_INSTRUCTION_NORMAL;
         self.write_bytes(false, &[LCD_CMD_FUNCTIONSET | display_function])?;
+        self.config.delay.delay_us(27);
 
-        // wait 39 us
-        self.config.delay.delay_us(39);
+        // place the device into extended instruction mode
+        self.write_bytes(false, &[LCD_CMD_FUNCTIONSET | display_function | LCD_FLAG_INSTUCTION_EXTENSION])?;
+        self.config.delay.delay_us(27);
 
+        // set internal OSC frequency
+        //   - 0x14 sets to 149 Hz(5V) or 144 Hz(3.3V), with 1/5 bias
+        self.write_bytes(false, &[0x14])?;
+        self.config.delay.delay_us(27);
+
+        // set contrast
+        self.write_bytes(false, &[0x78])?;
+        self.config.delay.delay_us(27);
+
+        // set power/icon/contrast control
+        self.write_bytes(false, &[0x5E])?;
+        self.config.delay.delay_us(27);
+
+        // set follower control
+        self.write_bytes(false, &[0x6A])?;
+
+        // wait 200 ms
+        self.config.delay.delay_ms(200);
+
+        // return to normal instructions
+        self.write_bytes(false, &[LCD_CMD_FUNCTIONSET | display_function])?;
+        self.config.delay.delay_us(27);
+        
         // display on/off control
         let display_control: u8 = LCD_FLAG_DISPLAYON | LCD_FLAG_CURSOROFF | LCD_FLAG_BLINKOFF;
         self.write_bytes( false, &[LCD_CMD_DISPLAYCONTROL | display_control])?;
-
-        // wait 39 us
-        self.config.delay.delay_us(39);
+        self.config.delay.delay_us(27);
 
         // clear display
         self.write_bytes(false, &[LCD_CMD_CLEARDISPLAY])?;
-
-        // wait 1.53 ms
-        self.config.delay.delay_us(1530);
+        self.config.delay.delay_ms(2);
 
         // entry mode set
         let display_mode: u8 = LCD_FLAG_ENTRYLEFT | LCD_FLAG_ENTRYSHIFTDECREMENT;
         self.write_bytes(false, &[LCD_CMD_ENTRYMODESET | display_mode])?;
+        self.config.delay.delay_us(27);
 
         Ok((display_function, display_control, display_mode))
     }
@@ -174,7 +199,7 @@ mod lib_tests {
             lcd_type: LcdDisplayType::Lcd16x4,
             delay: NoopDelay,
         };
-        let mut driver = AIP31068::new(device);
+        let mut driver = ST7032i::new(device);
 
 
         driver.write_bytes(true, &[0x01, 0x02, 0x03]).unwrap();
@@ -200,7 +225,7 @@ mod lib_tests {
             lcd_type: LcdDisplayType::Lcd16x4,
             delay: NoopDelay,
         };
-        let mut device = AIP31068::new(config);
+        let mut device = ST7032i::new(config);
         let mut display = StandardCharacterDisplayHandler::default();
 
         assert!(display.clear(&mut device).is_ok());
@@ -234,7 +259,7 @@ mod lib_tests {
             lcd_type: LcdDisplayType::Lcd16x4,
             delay: NoopDelay,
         };
-        let mut device = AIP31068::new(config);
+        let mut device = ST7032i::new(config);
         let mut display = StandardCharacterDisplayHandler::default();
 
         assert!(display.print(&mut device, "Hello World").is_ok());
@@ -270,7 +295,7 @@ mod lib_tests {
             lcd_type: LcdDisplayType::Lcd16x4,
             delay: NoopDelay,
         };
-        let mut device = AIP31068::new(config);
+        let mut device = ST7032i::new(config);
         let mut display = StandardCharacterDisplayHandler::default();
 
         assert!(display.create_char(&mut device, 2, [0b11011, 0b10001, 0b11011, 0b00000, 0b00000, 0b00100, 0b01110, 0b10001]).is_ok());

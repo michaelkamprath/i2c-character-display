@@ -35,6 +35,8 @@ pub const LCD_FLAG_MOVERIGHT: u8 = 0x04; //  Flag for moving right
 pub const LCD_FLAG_MOVELEFT: u8 = 0x00; //  Flag for moving left
 
 // flags for function set
+pub const LCD_FLAG_8BITMODE: u8 = 0x10; //  LCD 8 bit mode
+pub const LCD_FLAG_4BITMODE: u8 = 0x00; //  LCD 4 bit mode
 pub const LCD_FLAG_2LINE: u8 = 0x08; //  LCD 2 line mode
 pub const LCD_FLAG_1LINE: u8 = 0x00; //  LCD 1 line mode
 pub const LCD_FLAG_5x10_DOTS: u8 = 0x04; //  10 pixel high font mode
@@ -244,15 +246,9 @@ where
         device: &mut DEVICE,
         text: &str,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        #[cfg(feature = "defmt")]
-        defmt::debug!("Printing: {}", text);
         device.write_bytes(true, text.as_bytes())?;
-        #[cfg(feature = "defmt")]
-        defmt::debug!("Printed ... now waiting");
         // wait for command to complete
         device.delay().delay_us(43);
-        #[cfg(feature = "defmt")]
-        defmt::debug!("done waiting");
         Ok(())
     }
 
@@ -262,7 +258,7 @@ where
         _on: bool,
     ) -> Result<(), CharacterDisplayError<I2C>> {
         #[cfg(feature = "defmt")]
-        defmt::warn!("Backlight not supported");
+        defmt::warn!("Backlight control not supported on this display");
         Err(CharacterDisplayError::UnsupportedOperation)
     }
 

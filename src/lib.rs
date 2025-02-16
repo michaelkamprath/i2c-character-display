@@ -10,6 +10,8 @@
 //!   This library supports that configuration, though it would be straightforward to add support for other pin configurations.
 //! - **AiP31068** - This is a character display controller with a built-in I2C support. The command set is similar to the HD44780, but the controller
 //!   operates in 8-bit mode and is initialized differently.  Examples of displays that use this controller include the [Surenoo SLC1602O](https://www.surenoo.com/products/8109143).
+//! - **ST7032i** - This is an I2C character display controller used with LCD displays. It is similar to the HD44780, but with some differences in the command set.
+//!   Examples of displays that use this controller include the [Surenoo SLC1602K3](https://www.surenoo.com/collections/81733622/products/8131705).
 //!
 //! Key features include:
 //! - Convenient high-level API for controlling many types of character display
@@ -139,6 +141,15 @@ pub type CharacterDisplayAIP31068<I2C, DELAY> =
         I2C,
         DELAY,
         crate::driver::aip31068::AIP31068<I2C, DELAY>,
+        crate::driver::standard::StandardCharacterDisplayHandler,
+    >;
+
+/// Character display using the ST7032i controller with built-in I2C adapter.
+pub type CharacterDisplayST7032i<I2C, DELAY> =
+    BaseCharacterDisplay<
+        I2C,
+        DELAY,
+        crate::driver::st7032i::ST7032i<I2C, DELAY>,
         crate::driver::standard::StandardCharacterDisplayHandler,
     >;
 
@@ -599,11 +610,7 @@ where
     ACTIONS: driver::DisplayActionsTrait<I2C, DELAY, DEVICE>,
 {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-        #[cfg(feature = "defmt")]
-        defmt::info!("Printing to display: {}", s);
         if let Err(_e) = self.print(s) {
-            #[cfg(feature = "defmt")]
-            defmt::error!("Error printing to display");
             return Err(core::fmt::Error);
         }
         Ok(())
