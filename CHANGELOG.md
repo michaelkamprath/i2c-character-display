@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 * Refactored code base to make it easier to add support for new character display controllers which minmal duplication of code.
+* Added support for the ST7032i conrtroller
 
 ## [0.4.0] - 2024-11-24
 * Completely refactored code to enable different controller types.

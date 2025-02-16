@@ -57,6 +57,8 @@ let mut lcd = CharacterDisplayPCF8574T::new(i2c, LcdDisplayType::Lcd16x2, delay)
 let mut lcd = CharacterDisplayDualHD44780::new(i2c, LcdDisplayType::Lcd40x4, delay);
 // Character display with the AiP31068 controller
 let mut lcd = CharacterDisplayAIP31068::new(i2c, LcdDisplayType::Lcd16x2, delay);
+// Character display with the ST7032i controller
+let mut lcd = CharacterDisplayST7032i::new(i2c, LcdDisplayType::Lcd16x2, delay);
 ```
 When creating the display object, you can choose the display type from the `LcdDisplayType` enum. The display type should match the physical
 display you are using. This display type configures the number of rows and columns, and the internal row offsets for the display.
