@@ -167,6 +167,8 @@ where
         _device: &mut DEVICE,
         _buffer: &mut [u8],
     ) -> Result<(), CharacterDisplayError<I2C>> {
+        #[cfg(feature = "defmt")]
+        defmt::warn!("Reading data is not supported on this display");
         Err(CharacterDisplayError::UnsupportedOperation)
     }
 
@@ -174,6 +176,8 @@ where
         &mut self,
         _device: &mut DEVICE,
     ) -> Result<u8, CharacterDisplayError<I2C>> {
+        #[cfg(feature = "defmt")]
+        defmt::warn!("Reading the address counter is not supported on this display");
         Err(CharacterDisplayError::UnsupportedOperation)
     }
 
@@ -183,6 +187,8 @@ where
         _device: &mut DEVICE,
         _contrast: u8,
     ) -> Result<(), CharacterDisplayError<I2C>> {
+        #[cfg(feature = "defmt")]
+        defmt::warn!("Setting contrast is not supported on this display");
         Err(CharacterDisplayError::UnsupportedOperation)
     }
 }

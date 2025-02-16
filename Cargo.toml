@@ -24,7 +24,6 @@ defmt = { version = "0.3", optional = true }
 ufmt = {version = "0.2", optional = true}
 
 [features]
-# default = ["hd44780", "aip31068", "st7032i"]
 defmt = ["dep:defmt", "embedded-hal/defmt-03"]
 ufmt = ["dep:ufmt"]
 
