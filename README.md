@@ -14,6 +14,8 @@ in an embedded, `no_std` environment. A number of I2C interfaces are supported:
   This library supports that configuration, though it would be straightforward to add support for other pin configurations.
 - **AiP31068** - This is a character display controller with a built-in I2C support. The command set is similar to the HD44780, but the controller
   operates in 8-bit mode and is initialized differently.  Examples of displays that use this controller include the [Surenoo SLC1602O](https://www.surenoo.com/products/8109143).
+- **ST7032i** - This is an I2C character display controller used with LCD displays. It is similar to the HD44780, but with some differences in the command set.
+  Examples of displays that use this controller include the [Surenoo SLC1602K3](https://www.surenoo.com/collections/81733622/products/8131705).
 
 Key features include:
 - Convenient high-level API for controlling many types of character display
@@ -55,6 +57,8 @@ let mut lcd = CharacterDisplayPCF8574T::new(i2c, LcdDisplayType::Lcd16x2, delay)
 let mut lcd = CharacterDisplayDualHD44780::new(i2c, LcdDisplayType::Lcd40x4, delay);
 // Character display with the AiP31068 controller
 let mut lcd = CharacterDisplayAIP31068::new(i2c, LcdDisplayType::Lcd16x2, delay);
+// Character display with the ST7032i controller
+let mut lcd = CharacterDisplayST7032i::new(i2c, LcdDisplayType::Lcd16x2, delay);
 ```
 When creating the display object, you can choose the display type from the `LcdDisplayType` enum. The display type should match the physical
 display you are using. This display type configures the number of rows and columns, and the internal row offsets for the display.

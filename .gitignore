@@ -4,3 +4,6 @@ Cargo.lock
 
 # MacOS
 .DS_Store
+
+# local dev
+documentation/
