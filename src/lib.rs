@@ -246,6 +246,7 @@ where
             CharacterDisplayError::ColumnOutOfRange => "Column out of range",
             CharacterDisplayError::FormattingError(_) => "Formatting error",
             CharacterDisplayError::UnsupportedDisplayType => "Unsupported display type",
+            #[allow(deprecated)]
             CharacterDisplayError::UnsupportedOperation => "Unsupported operation",
             CharacterDisplayError::UnsupportedOperationWithMessage(_) => "Unsupported operation",
             CharacterDisplayError::ReadNotSupported => "Read operation not supported",
