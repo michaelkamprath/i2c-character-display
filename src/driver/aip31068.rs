@@ -115,7 +115,7 @@ where
         self.buffer[idx] = control_byte | CONTROL_LAST_BYTE;
         idx += 1;
         for byte in &data[..data.len()] {
-            if idx > MAX_BUFFER_SIZE {
+            if idx >= MAX_BUFFER_SIZE {
                 return Err(CharacterDisplayError::BufferTooSmall);
             }
             self.buffer[idx] = *byte;

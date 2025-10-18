@@ -197,6 +197,7 @@ const MAX_DEVICE_COUNT: usize = 2;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 /// Errors that can occur when using the LCD backpack
+#[non_exhaustive]
 pub enum CharacterDisplayError<I2C>
 where
     I2C: i2c::I2c,
@@ -212,7 +213,11 @@ where
     /// The discplay type is not compatible with specific adapter.
     UnsupportedDisplayType,
     /// The requested operation is not supported by the adapter or controller
+    #[deprecated(since = "0.5.0", note = "Use `UnsupportedOperationWithMessage` instead")]
     UnsupportedOperation,
+    /// The requested operation is not supported by the adapter or controller. 
+    /// The string provides the name of the unsupported operation.
+    UnsupportedOperationWithMessage(&'static str),
     /// Read operation is not supported by the adapter
     ReadNotSupported,
     /// Internal error - bad device ID
@@ -242,6 +247,7 @@ where
             CharacterDisplayError::FormattingError(_) => "Formatting error",
             CharacterDisplayError::UnsupportedDisplayType => "Unsupported display type",
             CharacterDisplayError::UnsupportedOperation => "Unsupported operation",
+            CharacterDisplayError::UnsupportedOperationWithMessage(_) => "Unsupported operation",
             CharacterDisplayError::ReadNotSupported => "Read operation not supported",
             CharacterDisplayError::BadDeviceId => "Bad device ID",
             CharacterDisplayError::BufferTooSmall => "Buffer too small",

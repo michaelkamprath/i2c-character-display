@@ -197,7 +197,6 @@ where
     }
 
     fn left_to_right(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
-        // TODO revisit this function's logic
         self.display_mode |= LCD_FLAG_ENTRYLEFT;
         device.write_bytes(false, &[LCD_CMD_ENTRYMODESET | self.display_mode])?;
         // wait for command to complete
@@ -206,8 +205,7 @@ where
     }
 
     fn right_to_left(&mut self, device: &mut DEVICE) -> Result<(), CharacterDisplayError<I2C>> {
-        // TODO revisit this function's logic
-        self.display_mode |= LCD_FLAG_ENTRYRIGHT;
+        self.display_mode &= !LCD_FLAG_ENTRYLEFT;
         device.write_bytes(false, &[LCD_CMD_ENTRYMODESET | self.display_mode])?;
         // wait for command to complete
         device.delay().delay_us(39);
@@ -244,7 +242,9 @@ where
     ) -> Result<(), CharacterDisplayError<I2C>> {
         #[cfg(feature = "defmt")]
         defmt::warn!("Backlight control not supported on this display");
-        Err(CharacterDisplayError::UnsupportedOperation)
+        Err(CharacterDisplayError::UnsupportedOperationWithMessage(
+            "backlight",
+        ))
     }
 
     fn create_char(
@@ -267,7 +267,9 @@ where
         _device: &mut DEVICE,
         _buffer: &mut [u8],
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        Err(CharacterDisplayError::UnsupportedOperation)
+        Err(CharacterDisplayError::UnsupportedOperationWithMessage(
+            "read_device_data",
+        ))
     }
 
     /// Read the address counter.
@@ -276,6 +278,47 @@ where
         &mut self,
         _device: &mut DEVICE,
     ) -> Result<u8, CharacterDisplayError<I2C>> {
-        Err(CharacterDisplayError::UnsupportedOperation)
+        Err(CharacterDisplayError::UnsupportedOperationWithMessage(
+            "read_address_counter",
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate std;
+    use super::*;
+    use crate::{
+        driver::{aip31068::AIP31068, DeviceHardwareTrait},
+        DeviceSetupConfig, LcdDisplayType,
+    };
+    use embedded_hal_mock::eh1::{
+        delay::NoopDelay,
+        i2c::{Mock as I2cMock, Transaction as I2cTransaction},
+    };
+
+    #[test]
+    fn test_right_to_left_clears_left_flag() {
+        let i2c_address = 0x3e_u8;
+        let expected_i2c_transactions = std::vec![
+            // left_to_right -> command 0x06
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0000, 0x06]),
+            // right_to_left -> command 0x04
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0000, 0x04]),
+        ];
+
+        let i2c = I2cMock::new(&expected_i2c_transactions);
+        let mut device = AIP31068::new(DeviceSetupConfig {
+            i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x2,
+            delay: NoopDelay,
+        });
+        let mut actions = StandardCharacterDisplayHandler::default();
+
+        actions.left_to_right(&mut device).unwrap();
+        actions.right_to_left(&mut device).unwrap();
+
+        device.i2c().done();
     }
 }

@@ -451,7 +451,6 @@ where
         device: &mut DEVICE,
         controller: usize,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        // TODO revisit this function's logic
         self.display_mode[controller] |= LCD_FLAG_ENTRYLEFT;
         self.send_command_to_controller(
             device,
@@ -465,8 +464,7 @@ where
         device: &mut DEVICE,
         controller: usize,
     ) -> Result<(), CharacterDisplayError<I2C>> {
-        // TODO revisit this function's logic
-        self.display_mode[controller] |= LCD_FLAG_ENTRYRIGHT;
+        self.display_mode[controller] &= !LCD_FLAG_ENTRYLEFT;
         self.send_command_to_controller(
             device,
             controller,
@@ -720,6 +718,37 @@ mod lib_tests {
         assert!(actions.set_cursor(&mut driver, 10, 2).is_ok());
 
         // finish the i2c mock
+        driver.i2c().done();
+    }
+
+    #[test]
+    fn test_right_to_left_clears_left_flag() {
+        let i2c_address = 0x27_u8;
+        let expected_i2c_transactions = std::vec![
+            // left_to_right -> command 0x06
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0100]),
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0000]),
+            I2cTransaction::write(i2c_address, std::vec![0b0110_0100]),
+            I2cTransaction::write(i2c_address, std::vec![0b0110_0000]),
+            // right_to_left -> command 0x04
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0100]),
+            I2cTransaction::write(i2c_address, std::vec![0b0000_0000]),
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0100]),
+            I2cTransaction::write(i2c_address, std::vec![0b0100_0000]),
+        ];
+
+        let i2c = I2cMock::new(&expected_i2c_transactions);
+        let mut driver = GenericHD44780PCF8574T::new_adapter(DeviceSetupConfig {
+            i2c,
+            address: i2c_address,
+            lcd_type: LcdDisplayType::Lcd16x4,
+            delay: NoopDelay,
+        });
+        let mut actions = GenericHD44780PCF8574T::default();
+
+        actions.left_to_right(&mut driver).unwrap();
+        actions.right_to_left(&mut driver).unwrap();
+
         driver.i2c().done();
     }
 }
