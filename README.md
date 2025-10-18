@@ -31,7 +31,7 @@ Key features include:
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-i2c-character-display = { version = "0.4", features = ["defmt"] }
+i2c-character-display = { version = "0.5", features = ["defmt"] }
 ```
 The `features = ["defmt"]` line is optional and enables the `defmt` feature, which allows the library's errors to be used with the `defmt` logging
 framework. Another optional feature is `features = ["ufmt"]`, which enables the `ufmt` feature, allowing the `uwriteln!` and `uwrite!` macros to be used.
