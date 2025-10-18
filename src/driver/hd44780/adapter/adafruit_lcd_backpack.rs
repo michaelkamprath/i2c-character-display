@@ -43,7 +43,7 @@ where
     fn new(config: DeviceSetupConfig<I2C, DELAY>) -> Self {
         Self {
             bits: AdafruitLCDBackpackBitField(0),
-            config: config,
+            config,
             _marker: PhantomData,
         }
     }

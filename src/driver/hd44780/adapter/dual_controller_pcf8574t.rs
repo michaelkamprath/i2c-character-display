@@ -46,7 +46,7 @@ where
     fn new(config: DeviceSetupConfig<I2C, DELAY>) -> Self {
         Self {
             bits: DualHD44780_PCF8574TBitField(0),
-            config: config,
+            config,
             _marker: PhantomData,
         }
     }

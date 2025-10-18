@@ -29,7 +29,7 @@ where
     fn new(config: DeviceSetupConfig<I2C, DELAY>) -> Self {
         AIP31068 {
             buffer: [0; MAX_BUFFER_SIZE],
-            config: config,
+            config,
         }
     }
 

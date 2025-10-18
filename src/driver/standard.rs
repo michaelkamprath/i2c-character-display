@@ -45,21 +45,13 @@ pub const LCD_FLAG_5x8_DOTS: u8 = 0x00; //  8 pixel high font mode
 /// `StandardActionsHandler`` is a struct that implements the `DisplayActionsTrait` trait. Most of the
 /// character displays use a standard set of commands to control the display. This struct implements
 /// for those standard commands.
+#[derive(Default)]
 pub struct StandardCharacterDisplayHandler {
     display_function: u8,
     display_control: u8,
     display_mode: u8,
 }
 
-impl Default for StandardCharacterDisplayHandler {
-    fn default() -> Self {
-        StandardCharacterDisplayHandler {
-            display_function: 0,
-            display_control: 0,
-            display_mode: 0,
-        }
-    }
-}
 
 impl StandardCharacterDisplayHandler {
     pub fn get_display_function(&self) -> u8 {

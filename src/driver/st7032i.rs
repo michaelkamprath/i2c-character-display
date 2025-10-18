@@ -41,7 +41,7 @@ where
     fn new(config: DeviceSetupConfig<I2C, DELAY>) -> Self {
         ST7032i {
             buffer: [0; MAX_BUFFER_SIZE],
-            config: config,
+            config,
         }
     }
 
