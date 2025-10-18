@@ -213,9 +213,12 @@ where
     /// The discplay type is not compatible with specific adapter.
     UnsupportedDisplayType,
     /// The requested operation is not supported by the adapter or controller
-    #[deprecated(since = "0.5.0", note = "Use `UnsupportedOperationWithMessage` instead")]
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use `UnsupportedOperationWithMessage` instead"
+    )]
     UnsupportedOperation,
-    /// The requested operation is not supported by the adapter or controller. 
+    /// The requested operation is not supported by the adapter or controller.
     /// The string provides the name of the unsupported operation.
     UnsupportedOperationWithMessage(&'static str),
     /// Read operation is not supported by the adapter
