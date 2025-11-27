@@ -145,8 +145,10 @@ where
         self.set_rs(rs_setting);
         self.set_rw(false);
 
-        // now write the low nibble
         self.set_data(value & 0x0F);
+        // first write value without the enable strobe
+        // to ensure that the address set-up time t_AS = 40 ns is observed
+        self.write_bits_to_gpio()?;
         self.set_enable(true, controller)?;
         self.write_bits_to_gpio()?;
         self.set_enable(false, controller)?;
