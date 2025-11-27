@@ -51,7 +51,9 @@ where
             self.send_command_to_controller(controller, LCD_CMD_DISPLAYCONTROL | display_control)?;
             self.send_command_to_controller(controller, LCD_CMD_ENTRYMODESET | display_mode)?;
             self.send_command_to_controller(controller, LCD_CMD_CLEARDISPLAY)?;
+            self.device_config().delay.delay_ms(2);
             self.send_command_to_controller(controller, LCD_CMD_RETURNHOME)?;
+            self.device_config().delay.delay_ms(2);
         }
         // set up the display
         self.set_backlight(true)?;
