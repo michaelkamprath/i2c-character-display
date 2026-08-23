@@ -195,7 +195,7 @@ mod driver;
 
 const MAX_DEVICE_COUNT: usize = 2;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 /// Errors that can occur when using the LCD backpack
 #[non_exhaustive]
 pub enum CharacterDisplayError<I2C>
@@ -227,6 +227,31 @@ where
     BadDeviceId,
     /// Internal error - buffer too small
     BufferTooSmall,
+}
+
+impl<I2C> core::fmt::Debug for CharacterDisplayError<I2C>
+where
+    I2C: i2c::I2c,
+    I2C::Error: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::I2cError(arg0) => f.debug_tuple("I2cError").field(arg0).finish(),
+            Self::RowOutOfRange => write!(f, "RowOutOfRange"),
+            Self::ColumnOutOfRange => write!(f, "ColumnOutOfRange"),
+            Self::FormattingError(arg0) => f.debug_tuple("FormattingError").field(arg0).finish(),
+            Self::UnsupportedDisplayType => write!(f, "UnsupportedDisplayType"),
+            #[allow(deprecated)]
+            Self::UnsupportedOperation => write!(f, "UnsupportedOperation"),
+            Self::UnsupportedOperationWithMessage(arg0) => f
+                .debug_tuple("UnsupportedOperationWithMessage")
+                .field(arg0)
+                .finish(),
+            Self::ReadNotSupported => write!(f, "ReadNotSupported"),
+            Self::BadDeviceId => write!(f, "BadDeviceId"),
+            Self::BufferTooSmall => write!(f, "BufferTooSmall"),
+        }
+    }
 }
 
 impl<I2C> From<core::fmt::Error> for CharacterDisplayError<I2C>
