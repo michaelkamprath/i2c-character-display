@@ -1,6 +1,7 @@
 # `i2c-character-display` Change Log
 
 ## [Unreleased]
+* `CharacterDisplayError` now implements `Debug`, `Clone`, `Copy`, and `PartialEq` based on the I2C peripheral's associated error type rather than on the peripheral type itself. This allows the error to be used with shared-bus wrappers such as `embedded_hal_bus::i2c::AtomicDevice`, which do not implement those traits. Thanks to @ede1998 for the report and fix.
 ## [0.5.1] - 2025-10-18
 * Fixed several bugs and improved documentation.
 
