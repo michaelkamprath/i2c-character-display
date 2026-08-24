@@ -195,7 +195,6 @@ mod driver;
 
 const MAX_DEVICE_COUNT: usize = 2;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
 /// Errors that can occur when using the LCD backpack
 #[non_exhaustive]
 pub enum CharacterDisplayError<I2C>
@@ -227,6 +226,88 @@ where
     BadDeviceId,
     /// Internal error - buffer too small
     BufferTooSmall,
+}
+
+impl<I2C> core::fmt::Debug for CharacterDisplayError<I2C>
+where
+    I2C: i2c::I2c,
+    I2C::Error: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::I2cError(arg0) => f.debug_tuple("I2cError").field(arg0).finish(),
+            Self::RowOutOfRange => write!(f, "RowOutOfRange"),
+            Self::ColumnOutOfRange => write!(f, "ColumnOutOfRange"),
+            Self::FormattingError(arg0) => f.debug_tuple("FormattingError").field(arg0).finish(),
+            Self::UnsupportedDisplayType => write!(f, "UnsupportedDisplayType"),
+            #[allow(deprecated)]
+            Self::UnsupportedOperation => write!(f, "UnsupportedOperation"),
+            Self::UnsupportedOperationWithMessage(arg0) => f
+                .debug_tuple("UnsupportedOperationWithMessage")
+                .field(arg0)
+                .finish(),
+            Self::ReadNotSupported => write!(f, "ReadNotSupported"),
+            Self::BadDeviceId => write!(f, "BadDeviceId"),
+            Self::BufferTooSmall => write!(f, "BufferTooSmall"),
+        }
+    }
+}
+
+impl<I2C> Clone for CharacterDisplayError<I2C>
+where
+    I2C: i2c::I2c,
+    I2C::Error: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::I2cError(arg0) => Self::I2cError(arg0.clone()),
+            Self::RowOutOfRange => Self::RowOutOfRange,
+            Self::ColumnOutOfRange => Self::ColumnOutOfRange,
+            Self::FormattingError(arg0) => Self::FormattingError(*arg0),
+            Self::UnsupportedDisplayType => Self::UnsupportedDisplayType,
+            #[allow(deprecated)]
+            Self::UnsupportedOperation => Self::UnsupportedOperation,
+            Self::UnsupportedOperationWithMessage(arg0) => {
+                Self::UnsupportedOperationWithMessage(arg0)
+            }
+            Self::ReadNotSupported => Self::ReadNotSupported,
+            Self::BadDeviceId => Self::BadDeviceId,
+            Self::BufferTooSmall => Self::BufferTooSmall,
+        }
+    }
+}
+
+impl<I2C> Copy for CharacterDisplayError<I2C>
+where
+    I2C: i2c::I2c,
+    I2C::Error: Copy,
+{
+}
+
+impl<I2C> PartialEq for CharacterDisplayError<I2C>
+where
+    I2C: i2c::I2c,
+    I2C::Error: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::I2cError(lhs), Self::I2cError(rhs)) => lhs == rhs,
+            (Self::RowOutOfRange, Self::RowOutOfRange) => true,
+            (Self::ColumnOutOfRange, Self::ColumnOutOfRange) => true,
+            (Self::FormattingError(lhs), Self::FormattingError(rhs)) => lhs == rhs,
+            (Self::UnsupportedDisplayType, Self::UnsupportedDisplayType) => true,
+            #[allow(deprecated)]
+            (Self::UnsupportedOperation, Self::UnsupportedOperation) => true,
+            (
+                Self::UnsupportedOperationWithMessage(lhs),
+                Self::UnsupportedOperationWithMessage(rhs),
+            ) => lhs == rhs,
+            (Self::ReadNotSupported, Self::ReadNotSupported) => true,
+            (Self::BadDeviceId, Self::BadDeviceId) => true,
+            (Self::BufferTooSmall, Self::BufferTooSmall) => true,
+            _ => false,
+        }
+    }
 }
 
 impl<I2C> From<core::fmt::Error> for CharacterDisplayError<I2C>
@@ -895,5 +976,159 @@ mod lib_tests {
 
         // finish the i2c mock
         lcd.i2c().done();
+    }
+
+    /// An I2C peripheral implementing none of `Debug`, `Clone`, `Copy` or `PartialEq`,
+    /// mirroring real-world bus-sharing wrappers such as
+    /// `embedded_hal_bus::i2c::AtomicDevice`. The error type it produces does implement
+    /// them, which is all that `CharacterDisplayError` is allowed to depend on.
+    struct BareI2c;
+
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    struct BareI2cError;
+
+    impl i2c::Error for BareI2cError {
+        fn kind(&self) -> i2c::ErrorKind {
+            i2c::ErrorKind::Other
+        }
+    }
+
+    impl i2c::ErrorType for BareI2c {
+        type Error = BareI2cError;
+    }
+
+    impl i2c::I2c for BareI2c {
+        fn transaction(
+            &mut self,
+            _address: u8,
+            _operations: &mut [i2c::Operation<'_>],
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    /// `CharacterDisplayError` must not require the I2C peripheral itself to implement
+    /// these traits, only its associated error type. Deriving them rather than writing
+    /// them by hand silently reintroduces an `I2C: Trait` bound, which breaks callers
+    /// that share a bus between devices.
+    #[test]
+    fn test_error_traits_do_not_bound_the_i2c_type() {
+        fn assert_debug<T: core::fmt::Debug>() {}
+        fn assert_clone<T: Clone>() {}
+        fn assert_copy<T: Copy>() {}
+        fn assert_partial_eq<T: PartialEq>() {}
+
+        assert_debug::<CharacterDisplayError<BareI2c>>();
+        assert_clone::<CharacterDisplayError<BareI2c>>();
+        assert_copy::<CharacterDisplayError<BareI2c>>();
+        assert_partial_eq::<CharacterDisplayError<BareI2c>>();
+
+        let error = CharacterDisplayError::<BareI2c>::I2cError(BareI2cError);
+        // The type annotation is the point of this line: with a derived `Clone`, the
+        // call resolves to `<&T as Clone>::clone` and yields a reference instead.
+        let cloned: CharacterDisplayError<BareI2c> = Clone::clone(&error);
+        assert_eq!(cloned, error);
+        assert!(cloned != CharacterDisplayError::<BareI2c>::RowOutOfRange);
+        assert_eq!(std::format!("{:?}", cloned), "I2cError(BareI2cError)");
+    }
+
+    /// An error type whose `Debug`, `Clone` and `PartialEq` impls are deliberately
+    /// distinguishable from anything `CharacterDisplayError` could synthesize on its
+    /// own: `Debug` uses a custom format, `Clone` bumps a counter, and `PartialEq`
+    /// ignores that counter. It is intentionally not `Copy`, since `Clone` and
+    /// `PartialEq` must not require it.
+    struct CountingError {
+        id: u8,
+        clones: u8,
+    }
+
+    impl Clone for CountingError {
+        fn clone(&self) -> Self {
+            Self {
+                id: self.id,
+                clones: self.clones + 1,
+            }
+        }
+    }
+
+    impl core::fmt::Debug for CountingError {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            write!(f, "counting[id={},clones={}]", self.id, self.clones)
+        }
+    }
+
+    impl PartialEq for CountingError {
+        /// Compares only `id`, so a wrapper doing a field-wise comparison instead of
+        /// delegating here would disagree with this.
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id
+        }
+    }
+
+    impl i2c::Error for CountingError {
+        fn kind(&self) -> i2c::ErrorKind {
+            i2c::ErrorKind::Other
+        }
+    }
+
+    struct CountingI2c;
+
+    impl i2c::ErrorType for CountingI2c {
+        type Error = CountingError;
+    }
+
+    impl i2c::I2c for CountingI2c {
+        fn transaction(
+            &mut self,
+            _address: u8,
+            _operations: &mut [i2c::Operation<'_>],
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+    }
+
+    fn counting(id: u8) -> CharacterDisplayError<CountingI2c> {
+        CharacterDisplayError::I2cError(CountingError { id, clones: 0 })
+    }
+
+    /// The trait impls on `CharacterDisplayError` must delegate to the peripheral's
+    /// error type rather than ignore the wrapped value. None of this is enforced by
+    /// the compiler: an arm that discards the payload compiles happily.
+    #[test]
+    fn test_error_traits_delegate_to_the_i2c_error_type() {
+        // Debug must print the wrapped error's own representation
+        assert_eq!(
+            std::format!("{:?}", counting(3)),
+            "I2cError(counting[id=3,clones=0])"
+        );
+
+        // Clone must call the wrapped error's clone, not rebuild the value
+        assert_eq!(
+            std::format!("{:?}", Clone::clone(&counting(3))),
+            "I2cError(counting[id=3,clones=1])"
+        );
+
+        // PartialEq must defer to the wrapped error, which compares `id` only
+        assert_eq!(counting(3), counting(3));
+        assert_ne!(counting(3), counting(4));
+        assert_eq!(counting(3), Clone::clone(&counting(3)));
+
+        // ...and must still distinguish variants that carry no payload
+        assert_ne!(
+            counting(3),
+            CharacterDisplayError::<CountingI2c>::RowOutOfRange
+        );
+        assert_ne!(
+            CharacterDisplayError::<CountingI2c>::RowOutOfRange,
+            CharacterDisplayError::<CountingI2c>::ColumnOutOfRange
+        );
+        assert_eq!(
+            CharacterDisplayError::<CountingI2c>::UnsupportedOperationWithMessage("a"),
+            CharacterDisplayError::<CountingI2c>::UnsupportedOperationWithMessage("a")
+        );
+        assert_ne!(
+            CharacterDisplayError::<CountingI2c>::UnsupportedOperationWithMessage("a"),
+            CharacterDisplayError::<CountingI2c>::UnsupportedOperationWithMessage("b")
+        );
     }
 }
